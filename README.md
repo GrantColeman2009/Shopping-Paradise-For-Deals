@@ -1,4 +1,4 @@
-# Shopping Paradise For Deals — prototype (Phase 1 + Phase 2) — prototype (all phases: storefront, sellers, security, support)
+# Shopping Paradise For Deals — prototype (all phases: storefront, sellers, security, support)
 
 A working demo marketplace: sellers list products, buyers shop with a cart
 and demo checkout, sellers manage products and see fees, and an admin view

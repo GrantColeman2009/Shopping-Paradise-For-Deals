@@ -16,6 +16,14 @@ const PORT = process.env.PORT || 3000;
 const FEE_RATE = 0.04; // 4% marketplace fee per sale
 const IS_PROD = process.env.NODE_ENV === 'production';
 
+// Shipping carriers sellers can ship with (buyer-facing labels).
+const SHIPPING_CARRIERS = {
+  canada_post: 'Canada Post',
+  ups: 'UPS',
+  purolator: 'Purolator',
+};
+const carrierName = (code) => SHIPPING_CARRIERS[code] || SHIPPING_CARRIERS.canada_post;
+
 // Behind Render / any reverse proxy, so rate limiting sees the real client IP
 // and secure cookies work.
 app.set('trust proxy', 1);
@@ -164,6 +172,8 @@ app.use((req, res, next) => {
   res.locals.countries = COUNTRIES;
   res.locals.countryName = countryName;
   res.locals.flagOf = flagOf;
+  res.locals.shippingCarriers = SHIPPING_CARRIERS;
+  res.locals.carrierName = carrierName;
   // The CSRF token is bound to the session ID, so make sure a session
   // exists before generating it (otherwise the ID rotates per request).
   if (!req.session.csrfInit) req.session.csrfInit = 1;
@@ -470,11 +480,14 @@ app.post('/seller/products', requireSeller, (req, res) => {
   const origin_country_code = isValidCountry(req.body.origin_country_code)
     ? String(req.body.origin_country_code).toUpperCase()
     : (me.country_code || 'CA');
+  const shipping_carrier = SHIPPING_CARRIERS[req.body.shipping_carrier]
+    ? req.body.shipping_carrier
+    : 'canada_post';
   if (!req.body.name || price_cents < 0 || shipping_cost_cents < 0) {
     return res.status(400).render('seller/product-form', { product: req.body, error: 'Name, price and shipping cost are required.' });
   }
   db.prepare(
-    'INSERT INTO products (seller_id, name, description, category, price_cents, shipping_cost_cents, image_url, stock, origin_country_code) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO products (seller_id, name, description, category, price_cents, shipping_cost_cents, image_url, stock, origin_country_code, shipping_carrier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(
     req.session.sellerId,
     req.body.name.trim(),
@@ -484,7 +497,8 @@ app.post('/seller/products', requireSeller, (req, res) => {
     shipping_cost_cents,
     (req.body.image_url || '').trim(),
     stock,
-    origin_country_code
+    origin_country_code,
+    shipping_carrier
   );
   res.redirect('/seller/dashboard');
 });
@@ -504,8 +518,11 @@ app.post('/seller/products/:id/edit', requireSeller, (req, res) => {
   const origin_country_code = isValidCountry(req.body.origin_country_code)
     ? String(req.body.origin_country_code).toUpperCase()
     : (product.origin_country_code || 'CA');
+  const shipping_carrier = SHIPPING_CARRIERS[req.body.shipping_carrier]
+    ? req.body.shipping_carrier
+    : (product.shipping_carrier || 'canada_post');
   db.prepare(
-    'UPDATE products SET name = ?, description = ?, category = ?, price_cents = ?, shipping_cost_cents = ?, image_url = ?, stock = ?, origin_country_code = ? WHERE id = ?'
+    'UPDATE products SET name = ?, description = ?, category = ?, price_cents = ?, shipping_cost_cents = ?, image_url = ?, stock = ?, origin_country_code = ?, shipping_carrier = ? WHERE id = ?'
   ).run(
     req.body.name.trim(),
     (req.body.description || '').trim(),
@@ -515,6 +532,7 @@ app.post('/seller/products/:id/edit', requireSeller, (req, res) => {
     (req.body.image_url || '').trim(),
     stock,
     origin_country_code,
+    shipping_carrier,
     product.id
   );
   res.redirect('/seller/dashboard');

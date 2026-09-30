@@ -31,6 +31,14 @@
       <label>Stock <input type="number" name="stock" min="0" value="<%= product.stock != null ? product.stock : '10' %>" required></label>
       <label>Image URL <input type="url" name="image_url" value="<%= product.image_url || '' %>" placeholder="https://…"></label>
     </div>
+    <label>How will you ship this item?
+      <select name="shipping_carrier">
+        <% Object.keys(shippingCarriers).forEach(function(code) { %>
+          <option value="<%= code %>" <%= (product.shipping_carrier || 'canada_post') === code ? 'selected' : '' %>><%= shippingCarriers[code] %></option>
+        <% }) %>
+      </select>
+      <span class="muted small">Shoppers see this before they buy. Shipping stays free for them — it's built into your price.</span>
+    </label>
     <button type="submit"><%= product.id ? 'Save changes' : 'List product' %></button>
   </form>
 </div>

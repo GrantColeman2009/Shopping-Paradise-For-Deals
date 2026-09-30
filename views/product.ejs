@@ -6,6 +6,7 @@
     <p class="muted"><%= product.category.charAt(0).toUpperCase() + product.category.slice(1) %></p>
     <h1><%= product.name %></h1>
     <p class="price big"><%= fmt(product.price_cents + product.shipping_cost_cents) %> <span class="free-ship">FREE shipping</span></p>
+    <p class="muted">📦 Ships via <strong><%= carrierName(product.shipping_carrier) %></strong></p>
     <p><%= product.description %></p>
     <%- include('partials/origin-badges', { p: product, full: true }) %>
     <% if (product.stock > 0) { %>

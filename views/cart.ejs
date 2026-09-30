@@ -10,7 +10,7 @@
     <tbody>
       <% items.forEach(function(i) { %>
         <tr>
-          <td><a href="/products/<%= i.id %>"><%= i.name %></a><br><span class="free-ship">FREE shipping</span></td>
+          <td><a href="/products/<%= i.id %>"><%= i.name %></a><br><span class="free-ship">FREE shipping</span> <span class="muted small">via <%= carrierName(i.shipping_carrier) %></span></td>
           <td><%= fmt(i.unit) %></td>
           <td>
             <form action="/cart/update" method="post" class="inline-form">

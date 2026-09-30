@@ -80,6 +80,9 @@ See `DEPLOY.md` for the one-click Render deploy (free tier). A
 - **FREE shipping:** sellers enter item price + estimated shipping cost
   separately. Buyers always see ONE combined price with a "FREE shipping"
   badge. Shipping is never shown as a separate buyer-facing charge.
+- **Shipping carriers:** sellers choose how they ship each product —
+  **Canada Post, UPS, or Purolator**. The carrier is shown to shoppers on
+  the product page and in the cart before they buy.
 - All prices in CAD.
 
 ## Going live with Stripe later

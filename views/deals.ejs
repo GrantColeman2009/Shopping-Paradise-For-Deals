@@ -1,0 +1,26 @@
+<%- include('partials/header', { title: 'Brand-Name Deals', cartCount, seller }) %>
+
+<h1>Brand-Name Deals</h1>
+<p class="muted">Hand-picked brand-name products at deal prices. Prices in CAD.</p>
+<p class="disclosure">As an Amazon Associate, Shopping Paradise For Deals earns from qualifying purchases.</p>
+
+<% if (deals.length === 0) { %>
+  <p class="muted">No deals right now — check back soon.</p>
+<% } else { %>
+  <div class="product-grid">
+    <% deals.forEach(function(d) { %>
+      <div class="product-card">
+        <img src="<%= d.image_url %>" alt="<%= d.title %>" loading="lazy">
+        <div class="product-card-body">
+          <span class="affiliate-badge">Affiliate pick</span>
+          <h3><%= d.title %></h3>
+          <p class="price"><%= fmt(d.price_cents) %></p>
+          <p class="muted small"><%= d.brand %></p>
+          <p><a class="btn" href="<%= d.url %>" target="_blank" rel="noopener sponsored">View deal</a></p>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+<% } %>
+
+<%- include('partials/footer') %>

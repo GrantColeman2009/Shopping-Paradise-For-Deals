@@ -1,0 +1,16 @@
+<%- include('../partials/header', { title: 'Seller sign up', cartCount, seller }) %>
+
+<div class="auth-box">
+  <h1>Open your shop</h1>
+  <p class="muted">$14/month + 4% per sale. Demo — no real billing.</p>
+  <% if (typeof error !== 'undefined' && error) { %><p class="error"><%= error %></p><% } %>
+  <form action="/seller/signup" method="post">
+    <label>Business name <input type="text" name="business_name" required></label>
+    <label>Email <input type="email" name="email" required></label>
+    <label>Password <input type="password" name="password" required minlength="8"></label>
+    <button type="submit">Create seller account</button>
+  </form>
+  <p class="muted small">Already selling? <a href="/seller/login">Log in</a></p>
+</div>
+
+<%- include('../partials/footer') %>

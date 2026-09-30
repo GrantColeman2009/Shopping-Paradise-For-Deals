@@ -1,0 +1,57 @@
+<%- include('partials/header', { title: product.name, cartCount, seller }) %>
+
+<div class="product-detail">
+  <img class="product-detail-img" src="<%= product.image_url %>" alt="<%= product.name %>">
+  <div class="product-detail-info">
+    <p class="muted"><%= product.category.charAt(0).toUpperCase() + product.category.slice(1) %></p>
+    <h1><%= product.name %></h1>
+    <p class="price big"><%= fmt(product.price_cents + product.shipping_cost_cents) %> <span class="free-ship">FREE shipping</span></p>
+    <p><%= product.description %></p>
+    <p class="muted small">Sold by <%= product.business_name %></p>
+    <% if (product.stock > 0) { %>
+      <p class="in-stock">In stock (<%= product.stock %> available)</p>
+      <form action="/cart/add" method="post" class="add-cart">
+        <input type="hidden" name="product_id" value="<%= product.id %>">
+        <label>Qty <input type="number" name="qty" value="1" min="1" max="<%= product.stock %>"></label>
+        <button type="submit">Add to cart</button>
+      </form>
+    <% } else { %>
+      <p class="out-stock">Out of stock</p>
+    <% } %>
+  </div>
+</div>
+
+<div class="reviews">
+  <h2>Reviews<% if (avgRating) { %> <span class="muted small">(<%= avgRating %> / 5 from <%= reviews.length %>)</span><% } %></h2>
+  <% if (reviews.length === 0) { %>
+    <p class="muted">No reviews yet — be the first.</p>
+  <% } else { %>
+    <% reviews.forEach(function(r) { %>
+      <div class="review">
+        <p><strong><%= r.reviewer_name %></strong> <span class="stars"><%= '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating) %></span></p>
+        <% if (r.comment) { %><p><%= r.comment %></p><% } %>
+        <p class="muted small"><%= r.created_at %></p>
+      </div>
+    <% }) %>
+  <% } %>
+
+  <h3>Write a review</h3>
+  <% if (reviewError) { %><p class="error"><%= reviewError %></p><% } %>
+  <form action="/products/<%= product.id %>/reviews" method="post" class="review-form">
+    <label>Name <input type="text" name="reviewer_name" required maxlength="60"></label>
+    <label>Rating
+      <select name="rating" required>
+        <option value="">Choose…</option>
+        <option value="5">5 — Excellent</option>
+        <option value="4">4 — Good</option>
+        <option value="3">3 — Average</option>
+        <option value="2">2 — Poor</option>
+        <option value="1">1 — Terrible</option>
+      </select>
+    </label>
+    <label>Comment <textarea name="comment" rows="3" maxlength="1000"></textarea></label>
+    <button type="submit">Submit review</button>
+  </form>
+</div>
+
+<%- include('partials/footer') %>

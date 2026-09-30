@@ -1,0 +1,44 @@
+<%- include('partials/header', { title: 'Home', cartCount, seller }) %>
+
+<section class="hero">
+  <h1>Welcome to Shopping Paradise For Deals</h1>
+  <p class="ca-hero">🍁 100% Canadian owned &amp; operated</p>
+  <p class="hero-sub">Every price you see is the price you pay — <strong>FREE shipping</strong> is baked into every deal. No surprises at checkout.</p>
+  <form class="hero-search" action="/products" method="get">
+    <input type="text" name="search" placeholder="Search products…">
+    <button type="submit">Search</button>
+  </form>
+</section>
+
+<section>
+  <h2>Shop by category</h2>
+  <div class="category-grid">
+    <% categories.forEach(function(c) { %>
+      <a class="category-card" href="/products?category=<%= c %>"><%= c.charAt(0).toUpperCase() + c.slice(1) %></a>
+    <% }) %>
+  </div>
+</section>
+
+<section>
+  <h2>Featured deals</h2>
+  <% if (featured.length === 0) { %>
+    <p class="muted">No products listed yet — sellers are on their way.</p>
+  <% } else { %>
+  <div class="product-grid">
+    <% featured.forEach(function(p) { %>
+      <a class="product-card" href="/products/<%= p.id %>">
+        <img src="<%= p.image_url %>" alt="<%= p.name %>" loading="lazy">
+        <div class="product-card-body">
+          <h3><%= p.name %></h3>
+          <%- include('partials/origin-badges', { p: p }) %>
+          <p class="price"><%= fmt(p.price_cents + p.shipping_cost_cents) %> <span class="free-ship">FREE shipping</span></p>
+          <p class="muted small">Sold by <%= p.business_name %></p>
+        </div>
+      </a>
+    <% }) %>
+  </div>
+  <% } %>
+  <p><a class="btn" href="/products">Browse everything</a></p>
+</section>
+
+<%- include('partials/footer') %>

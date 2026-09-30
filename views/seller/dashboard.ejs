@@ -1,0 +1,95 @@
+<%- include('../partials/header', { title: 'Seller dashboard', cartCount, seller }) %>
+
+<div class="dash-head">
+  <h1><%= seller.business_name %></h1>
+  <form action="/seller/logout" method="post"><button type="submit" class="secondary">Log out</button></form>
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><span class="stat-num"><%= fmt(stats.revenue) %></span><span class="stat-label">Your sales</span></div>
+  <div class="stat"><span class="stat-num"><%= fmt(stats.fees) %></span><span class="stat-label">Fees paid (4%)</span></div>
+  <div class="stat"><span class="stat-num"><%= stats.items %></span><span class="stat-label">Items sold</span></div>
+  <div class="stat"><span class="stat-num"><%= products.length %></span><span class="stat-label">Products listed</span></div>
+</div>
+
+<h2>Your products</h2>
+<p><a class="btn" href="/seller/products/new">+ Add product</a></p>
+<% if (products.length === 0) { %>
+  <p class="muted">No products yet.</p>
+<% } else { %>
+  <table class="cart-table">
+    <thead><tr><th>Product</th><th>Buyer price</th><th>Stock</th><th></th></tr></thead>
+    <tbody>
+      <% products.forEach(function(p) { %>
+        <tr>
+          <td><a href="/products/<%= p.id %>"><%= p.name %></a></td>
+          <td><%= fmt(p.price_cents + p.shipping_cost_cents) %> <span class="free-ship">FREE shipping</span></td>
+          <td><%= p.stock %></td>
+          <td>
+            <a href="/seller/products/<%= p.id %>/edit">Edit</a>
+            <form action="/seller/products/<%= p.id %>/delete" method="post" class="inline-form" onsubmit="return confirm('Delete this product?')">
+              <button type="submit" class="danger linklike">Delete</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+<% } %>
+
+<h2>Fulfill orders</h2>
+<% if (sellerOrders.length === 0) { %>
+  <p class="muted">No orders yet.</p>
+<% } else { %>
+  <% sellerOrders.forEach(function(o) { %>
+    <div class="order-card">
+      <div class="order-head">
+        <strong>Order #<%= o.id %></strong>
+        <span><%= o.buyer_name %></span>
+        <span class="muted small"><%= o.created_at %></span>
+        <span class="status-pill"><%= o.status %></span>
+      </div>
+      <table class="cart-table">
+        <thead><tr><th>Item</th><th>Qty</th><th>Your proceeds</th></tr></thead>
+        <tbody>
+          <% itemsByOrder[o.id].forEach(function(i) { %>
+            <tr><td><%= i.name %></td><td><%= i.qty %></td><td><%= fmt(i.unit_price_cents * i.qty) %></td></tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <form action="/seller/orders/<%= o.id %>/status" method="post" class="inline-form">
+        <label>Update status
+          <select name="status">
+            <% ['paid','pending','shipped','delivered'].forEach(function(s) { %>
+              <option value="<%= s %>" <%= o.status === s ? 'selected' : '' %>><%= s %></option>
+            <% }) %>
+          </select>
+        </label>
+        <button type="submit" class="secondary">Save</button>
+      </form>
+    </div>
+  <% }) %>
+<% } %>
+
+<h2>Orders with your items</h2>
+<% if (orderItems.length === 0) { %>
+  <p class="muted">No sales yet.</p>
+<% } else { %>
+  <table class="cart-table">
+    <thead><tr><th>Order</th><th>Product</th><th>Qty</th><th>Your proceeds</th><th>Fee (4%)</th><th>Date</th></tr></thead>
+    <tbody>
+      <% orderItems.forEach(function(i) { %>
+        <tr>
+          <td><a href="/orders/<%= i.order_id %>">#<%= i.order_id %></a></td>
+          <td><%= i.name %></td>
+          <td><%= i.qty %></td>
+          <td><%= fmt(i.unit_price_cents * i.qty) %></td>
+          <td><%= fmt(Math.round(i.unit_price_cents * i.qty * 0.04)) %></td>
+          <td><%= i.created_at %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+<% } %>
+
+<%- include('../partials/footer') %>

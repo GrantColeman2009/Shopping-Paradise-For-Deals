@@ -1,0 +1,29 @@
+<%- include('../partials/header', { title: (product.id ? 'Edit' : 'New') + ' product', cartCount, seller }) %>
+
+<div class="auth-box wide">
+  <h1><%= product.id ? 'Edit product' : 'Add a product' %></h1>
+  <p class="muted">Enter your item price and shipping cost separately — shoppers see one combined price with <span class="free-ship">FREE shipping</span>.</p>
+  <% if (typeof error !== 'undefined' && error) { %><p class="error"><%= error %></p><% } %>
+  <form action="<%= product.id ? '/seller/products/' + product.id + '/edit' : '/seller/products' %>" method="post">
+    <label>Product name <input type="text" name="name" value="<%= product.name || '' %>" required></label>
+    <label>Description <textarea name="description" rows="4"><%= product.description || '' %></textarea></label>
+    <label>Category
+      <select name="category">
+        <% ['electronics','home','fashion','sports','other'].forEach(function(c) { %>
+          <option value="<%= c %>" <%= product.category === c ? 'selected' : '' %>><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
+        <% }) %>
+      </select>
+    </label>
+    <div class="two-col">
+      <label>Item price (CAD) <input type="number" name="price" step="0.01" min="0" value="<%= product.price_cents != null ? (product.price_cents/100).toFixed(2) : '' %>" required></label>
+      <label>Your shipping cost (CAD) <input type="number" name="shipping_cost" step="0.01" min="0" value="<%= product.shipping_cost_cents != null ? (product.shipping_cost_cents/100).toFixed(2) : '0' %>" required></label>
+    </div>
+    <div class="two-col">
+      <label>Stock <input type="number" name="stock" min="0" value="<%= product.stock != null ? product.stock : '10' %>" required></label>
+      <label>Image URL <input type="url" name="image_url" value="<%= product.image_url || '' %>" placeholder="https://…"></label>
+    </div>
+    <button type="submit"><%= product.id ? 'Save changes' : 'List product' %></button>
+  </form>
+</div>
+
+<%- include('../partials/footer') %>

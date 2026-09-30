@@ -1,0 +1,18 @@
+<% // Product origin badges. Expects `p` with seller_country, origin_country_code,
+// business_name. Pass full=true on the product page for the detailed panel.
+const sc = String(p.seller_country || 'CA').toUpperCase();
+const oc = String(p.origin_country_code || 'CA').toUpperCase();
+const scLabel = sc === 'CA' ? '🍁 Canadian company' : flagOf(sc) + ' ' + countryName(sc) + ' company';
+const ocLabel = oc === 'CA' ? '🇨🇦 Made in Canada' : 'Made in ' + flagOf(oc) + ' ' + countryName(oc);
+%>
+<% if (typeof full !== 'undefined' && full) { %>
+  <div class="origin-panel">
+    <p class="origin-line"><%= sc === 'CA' ? '🍁' : flagOf(sc) %> Sold by <strong><%= p.business_name %></strong> — <%= sc === 'CA' ? 'a Canadian company' : 'a company based in ' + countryName(sc) %></p>
+    <p class="origin-line"><%= oc === 'CA' ? '🇨🇦' : flagOf(oc) %> Made in <strong><%= oc === 'CA' ? 'Canada' : countryName(oc) %></strong></p>
+  </div>
+<% } else { %>
+  <div class="origin-badges">
+    <span class="origin-badge <%= sc === 'CA' ? 'is-ca' : '' %>"><%= scLabel %></span>
+    <span class="origin-badge <%= oc === 'CA' ? 'is-ca' : '' %>"><%= ocLabel %></span>
+  </div>
+<% } %>

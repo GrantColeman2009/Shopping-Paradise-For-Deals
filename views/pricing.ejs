@@ -1,0 +1,26 @@
+<%- include('partials/header', { title: 'Sell on Shopping Paradise', cartCount, seller }) %>
+
+<div class="pricing-page">
+  <h1>Sell on Shopping Paradise For Deals</h1>
+  <p class="hero-sub">One simple plan. No listing fees, no surprises.</p>
+
+  <div class="price-card">
+    <h2>Seller plan</h2>
+    <p class="price big">$14<span class="muted">/month</span></p>
+    <ul>
+      <li><strong>4% per sale</strong> marketplace fee — taken from the sale, never added to the buyer's price</li>
+      <li>Unlimited product listings</li>
+      <li><strong>FREE shipping for buyers:</strong> you enter your item price and shipping cost separately; shoppers see one combined price with a FREE shipping badge</li>
+      <li>Seller dashboard with orders and fee reporting</li>
+    </ul>
+    <p><a class="btn" href="/seller/signup">Start selling</a> <span class="muted small">(demo — no real billing)</span></p>
+  </div>
+
+  <h2>How the 4% works</h2>
+  <p>You list a hoodie at $74.99 and your shipping cost is $7.99. The buyer sees <strong>$82.98 with FREE shipping</strong>. When it sells, the 4% marketplace fee ($3.32) comes out of your proceeds — the buyer never pays a cent more.</p>
+
+  <h2>How free shipping works</h2>
+  <p>Enter two numbers when you list a product: your item price and what shipping costs you. We combine them into a single buyer-facing price badged <span class="free-ship">FREE shipping</span>. Buyers love it, and you stay in control of your margins.</p>
+</div>
+
+<%- include('partials/footer') %>

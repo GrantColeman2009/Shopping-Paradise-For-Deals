@@ -1,0 +1,37 @@
+<%- include('partials/header', { title: 'Cart', cartCount, seller }) %>
+
+<h1>Your cart</h1>
+
+<% if (items.length === 0) { %>
+  <p>Your cart is empty. <a href="/products">Keep shopping</a>.</p>
+<% } else { %>
+  <table class="cart-table">
+    <thead><tr><th>Product</th><th>Price</th><th>Qty</th><th>Total</th><th></th></tr></thead>
+    <tbody>
+      <% items.forEach(function(i) { %>
+        <tr>
+          <td><a href="/products/<%= i.id %>"><%= i.name %></a><br><span class="free-ship">FREE shipping</span></td>
+          <td><%= fmt(i.unit) %></td>
+          <td>
+            <form action="/cart/update" method="post" class="inline-form">
+              <input type="hidden" name="product_id" value="<%= i.id %>">
+              <input type="number" name="qty" value="<%= i.qty %>" min="1" max="<%= i.stock %>">
+              <button type="submit">Update</button>
+            </form>
+          </td>
+          <td><%= fmt(i.unit * i.qty) %></td>
+          <td>
+            <form action="/cart/remove" method="post" class="inline-form">
+              <input type="hidden" name="product_id" value="<%= i.id %>">
+              <button type="submit" class="danger">Remove</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <p class="cart-total">Subtotal: <strong><%= fmt(subtotal) %></strong> <span class="free-ship">FREE shipping included</span></p>
+  <p><a class="btn" href="/checkout">Proceed to checkout</a></p>
+<% } %>
+
+<%- include('partials/footer') %>

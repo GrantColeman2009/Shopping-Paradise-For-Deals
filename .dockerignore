@@ -1,0 +1,4 @@
+node_modules
+marketplace.db
+.git
+.env

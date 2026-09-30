@@ -1,0 +1,22 @@
+<%- include('partials/header', { title: 'Order confirmed', cartCount, seller }) %>
+
+<div class="confirmation">
+  <h1>🎉 Order confirmed!</h1>
+  <p>Thank you, <%= order.buyer_name %>. Your order <strong>#<%= order.id %></strong> is on its way.</p>
+  <p class="muted">A confirmation was sent to <%= order.buyer_email %>. (Demo mode — no email actually sent.)</p>
+
+  <h2>Order summary</h2>
+  <table class="cart-table">
+    <thead><tr><th>Product</th><th>Qty</th><th>Price</th></tr></thead>
+    <tbody>
+      <% items.forEach(function(i) { %>
+        <tr><td><%= i.name %></td><td><%= i.qty %></td><td><%= fmt(i.unit_price_cents * i.qty) %></td></tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <p>Total paid: <strong><%= fmt(order.total_cents) %></strong> <span class="free-ship">FREE shipping</span></p>
+  <p class="muted small">Ship to: <%= order.address %></p>
+  <p><a class="btn" href="/products">Keep shopping</a></p>
+</div>
+
+<%- include('partials/footer') %>

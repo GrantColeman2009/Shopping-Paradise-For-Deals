@@ -1,0 +1,10 @@
+# Render Blueprint — one-click deploy of Shopping Paradise For Deals.
+# Render sets PORT automatically; the Dockerfile seeds the demo data on boot.
+services:
+  - type: web
+    name: shopping-paradise-for-deals
+    runtime: docker
+    plan: free
+    envVars:
+      - key: SESSION_SECRET
+        generateValue: true

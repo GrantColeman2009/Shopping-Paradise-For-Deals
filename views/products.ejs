@@ -1,0 +1,33 @@
+<%- include('partials/header', { title: 'Shop', cartCount, seller }) %>
+
+<h1>Shop all products</h1>
+
+<form class="filter-bar" action="/products" method="get">
+  <input type="text" name="search" placeholder="Search…" value="<%= search %>">
+  <select name="category">
+    <option value="">All categories</option>
+    <% categories.forEach(function(c) { %>
+      <option value="<%= c %>" <%= c === category ? 'selected' : '' %>><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
+    <% }) %>
+  </select>
+  <button type="submit">Filter</button>
+</form>
+
+<% if (products.length === 0) { %>
+  <p>No products match your search.</p>
+<% } else { %>
+  <div class="product-grid">
+    <% products.forEach(function(p) { %>
+      <a class="product-card" href="/products/<%= p.id %>">
+        <img src="<%= p.image_url %>" alt="<%= p.name %>" loading="lazy">
+        <div class="product-card-body">
+          <h3><%= p.name %></h3>
+          <p class="price"><%= fmt(p.price_cents + p.shipping_cost_cents) %> <span class="free-ship">FREE shipping</span></p>
+          <p class="muted small"><%= p.category %> · Sold by <%= p.business_name %></p>
+        </div>
+      </a>
+    <% }) %>
+  </div>
+<% } %>
+
+<%- include('partials/footer') %>

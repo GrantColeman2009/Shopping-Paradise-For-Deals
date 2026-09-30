@@ -1,0 +1,25 @@
+<%- include('partials/header', { title: 'Checkout', cartCount, seller }) %>
+
+<h1>Checkout</h1>
+<p class="muted">Demo checkout — no real payment is processed.</p>
+
+<div class="checkout-wrap">
+  <form action="/checkout" method="post" class="checkout-form">
+    <% if (typeof error !== 'undefined' && error) { %><p class="error"><%= error %></p><% } %>
+    <label>Full name <input type="text" name="buyer_name" required></label>
+    <label>Email <input type="email" name="buyer_email" required></label>
+    <label>Shipping address <textarea name="address" rows="3" required></textarea></label>
+    <button type="submit">Place order — <%= fmt(subtotal) %></button>
+  </form>
+  <aside class="order-summary">
+    <h2>Order summary</h2>
+    <ul>
+      <% items.forEach(function(i) { %>
+        <li><%= i.qty %> × <%= i.name %> — <%= fmt(i.unit * i.qty) %></li>
+      <% }) %>
+    </ul>
+    <p>Total: <strong><%= fmt(subtotal) %></strong> <span class="free-ship">FREE shipping</span></p>
+  </aside>
+</div>
+
+<%- include('partials/footer') %>

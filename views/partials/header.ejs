@@ -11,6 +11,7 @@
   <meta property="og:description" content="<%= typeof description !== 'undefined' && description ? description : 'Every price includes FREE shipping. A 100% Canadian owned marketplace.' %>">
   <% if (typeof ogImage !== 'undefined' && ogImage) { %><meta property="og:image" content="<%= ogImage %>"><% } %>
   <link rel="stylesheet" href="/style.css">
+  <meta name="csrf-token" content="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
 </head>
 <body>
   <header class="site-header">
@@ -29,6 +30,7 @@
           <a href="/seller/login">Seller Login</a>
         <% } %>
         <a class="cart-link" href="/cart">Cart (<%= typeof cartCount !== 'undefined' ? cartCount : 0 %>)</a>
+        <a href="/help">Help</a>
       </nav>
     </div>
   </header>

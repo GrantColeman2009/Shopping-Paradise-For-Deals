@@ -11,6 +11,39 @@
   <div class="stat"><span class="stat-num"><%= fmt(stats.sellers * 1400) %></span><span class="stat-label">Subscription revenue/mo</span></div>
 </div>
 
+<h2>Support tickets</h2>
+<% if (tickets.length === 0) { %>
+  <p class="muted">No tickets yet.</p>
+<% } else { %>
+  <table class="cart-table">
+    <thead><tr><th>#</th><th>From</th><th>Category</th><th>Subject &amp; message</th><th>Status</th><th>Filed</th><th>Update</th></tr></thead>
+    <tbody>
+      <% tickets.forEach(function(t) { %>
+        <tr class="<%= t.status === 'needs-owner' ? 'ticket-row-attn' : '' %>">
+          <td><%= t.id %></td>
+          <td><%= t.name %><br><span class="muted small"><%= t.email %> · <%= t.role %></span></td>
+          <td><%= ticketCategoryLabel(t.category) %><% if (t.order_ref) { %><br><span class="muted small">order #<%= t.order_ref %></span><% } %></td>
+          <td><strong><%= t.subject %></strong><br><span class="muted small"><%= t.message %></span><% if (t.admin_note) { %><br><span class="small">📝 <%= t.admin_note %></span><% } %></td>
+          <td><span class="pill <%= t.status === 'needs-owner' ? 'pill-alert' : (t.status === 'closed' ? 'pill-muted' : '') %>"><%= t.status %></span></td>
+          <td class="muted small"><%= t.created_at %></td>
+          <td>
+            <form action="/admin/tickets/<%= t.id %>" method="post" class="stacked-form">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <select name="status">
+                <% ticketStatuses.forEach(function(s) { %>
+                  <option value="<%= s %>" <%= t.status === s ? 'selected' : '' %>><%= s %></option>
+                <% }) %>
+              </select>
+              <input type="text" name="admin_note" placeholder="Internal note" value="<%= t.admin_note %>" maxlength="500">
+              <button type="submit" class="secondary">Update</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+<% } %>
+
 <h2>Seller payouts</h2>
 <p>Seller payouts: 14th and 28th of each month at 10:00 AM PST.</p>
 <p><strong>Next payout: <%= nextPayout %></strong></p>

@@ -1,4 +1,4 @@
-# Shopping Paradise For Deals — prototype (Phase 1 + Phase 2)
+# Shopping Paradise For Deals — prototype (Phase 1 + Phase 2) — prototype (all phases: storefront, sellers, security, support)
 
 A working demo marketplace: sellers list products, buyers shop with a cart
 and demo checkout, sellers manage products and see fees, and an admin view
@@ -54,8 +54,9 @@ Demo seller logins (password for all three): `password123`
 - **helmet** — secure HTTP headers, with a tuned Content Security Policy
   (external images allowed; inline `onsubmit` confirm dialogs permitted).
 - **express-rate-limit** — a generous global limit plus stricter limits on
-  seller login (10 attempts / 15 min) and review submission
-  (30 / hour), guarding against brute-force and spam.
+  seller login (10 attempts / 15 min), review submission
+  (30 / hour), and support endpoints (60 / hour), guarding against
+  brute-force and spam.
 - **CSRF protection** (`csrf-csrf`, double-submit cookie pattern) — every
   POST form carries a token; token-less or forged posts get a 403.
 - **Session cookie hardening** — `httpOnly`, `SameSite=Lax`, and the
@@ -96,10 +97,29 @@ You will also need, before any public launch: business registration, terms
 of service, a privacy policy, tax handling, and real seller payouts through
 your own Stripe/bank setup. None of that is in this prototype.
 
+## Support (AI-only, all free)
+
+- **Help centre** (`/help`) — plain-language FAQs for buyers and sellers.
+- **AI support assistant** — floating Help button on every page, backed by
+  `POST /api/assistant`. It is rule-based (keyword intents, no paid APIs)
+  and is always labelled "AI — automated, not a human" in the UI.
+  It handles common issues: order tracking, free shipping, returns,
+  selling, fees, payouts, country labels. Payment-dispute language
+  triggers an escalation reply pointing the visitor at a ticket.
+- **Support tickets** (`/support/new`) — stored in SQLite. Category
+  "Payment dispute" is automatically flagged `needs-owner` and sorted
+  first in the admin view with a highlight, so the marketplace owner
+  reviews it personally. Visitors can check status at `/support/status`
+  with their ticket number + email.
+- **Admin** (`/admin`) — ticket queue with status workflow
+  (open → needs-owner → answered → closed) and internal notes.
+
 ## Routes
 
 - `/` homepage · `/products` shop + search/filter · `/products/:id` detail
 - `/cart`, `/checkout`, `/orders/:id`
+- `/help` help centre · `/support/new` file a ticket · `/support/status` check a ticket
+- `POST /api/assistant` AI assistant (JSON, CSRF-protected)
 - `/seller/signup`, `/seller/login`, `/seller/dashboard`,
   `/seller/products/new`, `/seller/products/:id/edit`
 - `/pricing` seller pricing explainer · `/admin` platform stats

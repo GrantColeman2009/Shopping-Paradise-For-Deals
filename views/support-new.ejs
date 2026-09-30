@@ -1,0 +1,44 @@
+<%- include('partials/header', { title: 'File a support ticket', description: 'File a support ticket with Shopping Paradise For Deals. Payment disputes go to the marketplace owner.', cartCount, seller }) %>
+
+<h1>File a support ticket</h1>
+<p class="lede">Tell us what happened and a real person will get back to you by email. <strong>Payment disputes</strong> are reviewed by the marketplace owner.</p>
+
+<% if (typeof error !== 'undefined' && error) { %><p class="form-error"><%= error %></p><% } %>
+
+<form class="form" action="/support" method="post">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label>Your name
+    <input type="text" name="name" required maxlength="80" value="<%= typeof values !== 'undefined' ? values.name || '' : '' %>">
+  </label>
+  <label>Email (we reply here)
+    <input type="email" name="email" required maxlength="120" value="<%= typeof values !== 'undefined' ? values.email || '' : '' %>">
+  </label>
+  <label>I am a…
+    <select name="role">
+      <option value="buyer">Buyer</option>
+      <option value="seller" <%= typeof values !== 'undefined' && values.role === 'seller' ? 'selected' : '' %>>Seller</option>
+    </select>
+  </label>
+  <label>What's this about?
+    <select name="category">
+      <option value="order_issue">Order problem (tracking, damaged, missing)</option>
+      <option value="payment_dispute">Payment dispute — goes to the marketplace owner</option>
+      <option value="seller_question">Selling on the marketplace</option>
+      <option value="product_question">Question about a product</option>
+      <option value="account_help">Account / login help</option>
+      <option value="other">Something else</option>
+    </select>
+  </label>
+  <label>Order number (if you have one)
+    <input type="text" name="order_ref" maxlength="20" placeholder="e.g. 42" value="<%= typeof values !== 'undefined' ? values.order_ref || '' : '' %>">
+  </label>
+  <label>Subject
+    <input type="text" name="subject" required maxlength="120" value="<%= typeof values !== 'undefined' ? values.subject || '' : '' %>">
+  </label>
+  <label>What happened?
+    <textarea name="message" required rows="6" maxlength="2000"><%= typeof values !== 'undefined' ? values.message || '' : '' %></textarea>
+  </label>
+  <button class="btn" type="submit">Send ticket</button>
+</form>
+
+<%- include('partials/footer') %>

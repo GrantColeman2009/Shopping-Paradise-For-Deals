@@ -1,0 +1,31 @@
+<%- include('partials/header', { title: 'Check ticket status', cartCount, seller }) %>
+
+<h1>Check a ticket's status</h1>
+<p class="lede">Enter your ticket number and the email you used when you filed it.</p>
+
+<% if (typeof error !== 'undefined' && error) { %><p class="form-error"><%= error %></p><% } %>
+
+<form class="form" action="/support/status" method="get">
+  <label>Ticket number
+    <input type="text" name="id" inputmode="numeric" required value="<%= typeof qid !== 'undefined' ? qid : '' %>">
+  </label>
+  <label>Email
+    <input type="email" name="email" required value="<%= typeof qemail !== 'undefined' ? qemail : '' %>">
+  </label>
+  <button class="btn" type="submit">Check status</button>
+</form>
+
+<% if (typeof ticket !== 'undefined' && ticket) { %>
+<div class="notice">
+  <p><strong>Ticket #<%= ticket.id %></strong> — <%= ticket.subject %></p>
+  <p>Status:
+    <% if (ticket.status === 'open') { %><span class="pill">Open — we're on it</span>
+    <% } else if (ticket.status === 'needs-owner') { %><span class="pill pill-alert">With the marketplace owner</span>
+    <% } else if (ticket.status === 'answered') { %><span class="pill">Answered — check your email</span>
+    <% } else { %><span class="pill pill-muted">Closed</span><% } %>
+  </p>
+  <p class="muted">Filed <%= ticket.created_at %></p>
+</div>
+<% } %>
+
+<%- include('partials/footer') %>

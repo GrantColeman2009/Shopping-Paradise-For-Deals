@@ -8,6 +8,7 @@ const cookieParser = require('cookie-parser');
 const { doubleCsrf } = require('csrf-csrf');
 const db = require('./db');
 const payments = require('./lib/payments');
+const { answer: assistantAnswer } = require('./lib/assistant');
 const { COUNTRIES, countryName, flagOf, isValidCountry } = require('./lib/countries');
 
 const app = express();
@@ -39,6 +40,7 @@ app.use(
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '16kb' })); // support-assistant API posts JSON
 app.use(cookieParser());
 app.use(
   session({
@@ -75,6 +77,13 @@ const reviewLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+const supportLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 60, // tickets + assistant messages per hour per IP
+  message: 'Too many support requests — please wait a while and try again.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 app.use(globalLimiter);
 
 // ---- CSRF protection (double-submit cookie, no server state) ----
@@ -83,7 +92,8 @@ const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
   getSessionIdentifier: (req) => req.sessionID, // bind tokens to the session
   cookieName: 'spfd.csrf',
   cookieOptions: { httpOnly: true, sameSite: 'lax', secure: IS_PROD },
-  getCsrfTokenFromRequest: (req) => req.body && req.body._csrf,
+  getCsrfTokenFromRequest: (req) =>
+    (req.body && req.body._csrf) || req.headers['x-csrf-token'],
 });
 
 // ---- shared helpers ----
@@ -516,8 +526,63 @@ app.post('/seller/products/:id/delete', requireSeller, (req, res) => {
   res.redirect('/seller/dashboard');
 });
 
-// ---- pricing + admin ----
+// ---- pricing + help centre + support ----
 app.get('/pricing', (req, res) => res.render('pricing'));
+
+app.get('/help', (req, res) => res.render('help', {
+  description: 'Help centre for Shopping Paradise For Deals — answers about orders, free shipping, returns, selling, fees and payouts.',
+}));
+
+const TICKET_CATEGORIES = ['order_issue', 'payment_dispute', 'seller_question', 'product_question', 'account_help', 'other'];
+const TICKET_CATEGORY_LABELS = {
+  order_issue: 'Order problem',
+  payment_dispute: 'Payment dispute',
+  seller_question: 'Selling',
+  product_question: 'Product question',
+  account_help: 'Account help',
+  other: 'Other',
+};
+const TICKET_STATUSES = ['open', 'needs-owner', 'answered', 'closed'];
+
+app.get('/support/new', (req, res) => res.render('support-new'));
+
+app.post('/support', supportLimiter, (req, res) => {
+  const name = (req.body.name || '').trim().slice(0, 80);
+  const email = (req.body.email || '').trim().slice(0, 120);
+  const role = req.body.role === 'seller' ? 'seller' : 'buyer';
+  const category = TICKET_CATEGORIES.includes(req.body.category) ? req.body.category : 'other';
+  const subject = (req.body.subject || '').trim().slice(0, 120);
+  const message = (req.body.message || '').trim().slice(0, 2000);
+  const order_ref = (req.body.order_ref || '').trim().slice(0, 20);
+  const values = { name: req.body.name, email: req.body.email, role, order_ref, subject, message };
+  if (!name || !email || !email.includes('@') || !subject || !message) {
+    return res.status(400).render('support-new', { error: 'Please fill in your name, a valid email, a subject and a message.', values });
+  }
+  // Payment disputes escalate straight to the marketplace owner.
+  const status = category === 'payment_dispute' ? 'needs-owner' : 'open';
+  const r = db
+    .prepare('INSERT INTO tickets (name, email, role, category, subject, message, order_ref, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(name, email, role, category, subject, message, order_ref, status);
+  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(r.lastInsertRowid);
+  res.render('support-confirm', { ticket });
+});
+
+app.get('/support/status', (req, res) => {
+  const qid = (req.query.id || '').trim();
+  const qemail = (req.query.email || '').trim().toLowerCase();
+  if (!qid || !qemail) return res.render('support-status', { qid, qemail });
+  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ? AND lower(email) = ?').get(parseInt(qid, 10) || -1, qemail);
+  if (!ticket) return res.render('support-status', { qid, qemail, error: 'No ticket found with that number and email.' });
+  res.render('support-status', { qid, qemail, ticket });
+});
+
+// AI support assistant API. Always labelled as automated in the UI.
+app.post('/api/assistant', supportLimiter, (req, res) => {
+  const message = String((req.body && req.body.message) || '').slice(0, 500);
+  if (!message.trim()) return res.status(400).json({ reply: 'Please type a question first.' });
+  const result = assistantAnswer(message);
+  res.json({ reply: result.reply, followups: result.followups, escalate: result.escalate });
+});
 
 app.get('/admin', (req, res) => {
   const stats = {
@@ -566,8 +631,19 @@ app.get('/admin', (req, res) => {
     )
     .all();
 
+  // Support tickets: payment disputes ("needs-owner") first, then newest.
+  const tickets = db
+    .prepare(
+      `SELECT * FROM tickets
+       ORDER BY CASE status WHEN 'needs-owner' THEN 0 WHEN 'open' THEN 1 WHEN 'answered' THEN 2 ELSE 3 END,
+                id DESC`
+    )
+    .all();
+
   res.render('admin', {
     stats, recent, deals, editDeal, amazonTag, revenueByMonth, topSellers, sellers,
+    tickets, ticketCategoryLabel: (c) => TICKET_CATEGORY_LABELS[c] || c,
+    ticketStatuses: TICKET_STATUSES,
     nextPayout: fmtPayout(nextPayoutDate()),
   });
 });
@@ -611,6 +687,15 @@ app.post('/admin/settings', (req, res) => {
   const tag = (req.body.amazon_tag || '').trim();
   db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
     .run('amazon_tag', tag);
+  res.redirect('/admin');
+});
+
+app.post('/admin/tickets/:id', (req, res) => {
+  const ticket = db.prepare('SELECT * FROM tickets WHERE id = ?').get(req.params.id);
+  if (!ticket) return res.status(404).render('404');
+  const status = TICKET_STATUSES.includes(req.body.status) ? req.body.status : ticket.status;
+  const admin_note = String(req.body.admin_note || '').slice(0, 500);
+  db.prepare('UPDATE tickets SET status = ?, admin_note = ? WHERE id = ?').run(status, admin_note, ticket.id);
   res.redirect('/admin');
 });
 

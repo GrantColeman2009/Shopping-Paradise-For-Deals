@@ -1,0 +1,60 @@
+<%- include('partials/header', { title: 'Help Centre', description: 'Help centre for Shopping Paradise For Deals — answers about orders, free shipping, returns, selling, fees and payouts on a 100% Canadian owned marketplace.', cartCount, seller }) %>
+
+<h1>Help Centre</h1>
+<p class="lede">Answers to the most common questions. Still stuck? Use the <strong>Help</strong> button at the bottom-right of any page to chat with our AI assistant, or <a href="/support/new">file a support ticket</a> and a real person will get back to you.</p>
+
+<div class="faq-grid">
+  <section class="faq-col">
+    <h2>For buyers</h2>
+    <details open>
+      <summary>How does free shipping work?</summary>
+      <p>Every price you see already includes shipping — there are never extra charges at checkout. Sellers build the shipping cost into the one price you pay, and every product carries a FREE shipping badge.</p>
+    </details>
+    <details>
+      <summary>Where is my order?</summary>
+      <p>Sellers update your order as they pack and send it: paid → shipped → delivered. If the status hasn't moved in a few days, <a href="/support/new">file a support ticket</a> with your order number and we'll chase it up.</p>
+    </details>
+    <details>
+      <summary>What if my item arrives damaged or never arrives?</summary>
+      <p>File a support ticket with your order number. If the seller can't make it right, payment disputes are reviewed by the marketplace owner for a final decision.</p>
+    </details>
+    <details>
+      <summary>What do the country labels mean?</summary>
+      <p>Every listing shows two things before you buy: the seller's home country (for example "🍁 Canadian company") and where the product was made (for example "Made in Vietnam"). Shopping Paradise For Deals itself is 100% Canadian owned and operated.</p>
+    </details>
+    <details>
+      <summary>Is my payment safe?</summary>
+      <p>This prototype runs in demo mode — no real payments are processed. On the live site, payments are handled by our payment provider; the marketplace never sees your card details.</p>
+    </details>
+  </section>
+  <section class="faq-col">
+    <h2>For sellers</h2>
+    <details open>
+      <summary>How do I start selling?</summary>
+      <p>Three steps: <strong>1.</strong> <a href="/seller/signup">Create a seller account</a> (tell us your company's home country). <strong>2.</strong> Add your products — you enter the price and the shipping cost separately, and buyers see one combined price. <strong>3.</strong> Get paid on the 14th and 28th of each month.</p>
+    </details>
+    <details>
+      <summary>What are the fees?</summary>
+      <p>$14 per month plus 4% of each sale. No listing fees, no hidden charges. See the <a href="/pricing">pricing page</a>.</p>
+    </details>
+    <details>
+      <summary>When do I get paid?</summary>
+      <p>Twice a month — on the 14th and the 28th. Your dashboard shows sales, fees, and totals any time.</p>
+    </details>
+    <details>
+      <summary>Where do I set where my product was made?</summary>
+      <p>On the add/edit product form, choose the country where the product was manufactured. Buyers see it on your listing next to your company's home country.</p>
+    </details>
+    <details>
+      <summary>I can't log in to my seller account</summary>
+      <p>Make sure you're using the email you signed up with. If you're still locked out, <a href="/support/new">file a support ticket</a> with your account email.</p>
+    </details>
+  </section>
+</div>
+
+<p class="help-cta">
+  <a class="btn" href="/support/new">File a support ticket</a>
+  <a class="btn btn-ghost" href="/support/status">Check a ticket's status</a>
+</p>
+
+<%- include('partials/footer') %>

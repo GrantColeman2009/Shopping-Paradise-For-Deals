@@ -1,0 +1,14 @@
+<%- include('partials/header', { title: 'Ticket received', cartCount, seller }) %>
+
+<h1>Ticket received ✓</h1>
+<div class="notice">
+  <p>Thanks, <strong><%= ticket.name %></strong> — we've got it.</p>
+  <p>Your ticket number is <strong>#<%= ticket.id %></strong>. We'll reply to <strong><%= ticket.email %></strong>.</p>
+  <% if (ticket.category === 'payment_dispute') { %>
+  <p>⚠️ You marked this as a <strong>payment dispute</strong> — it has been flagged for the marketplace owner to review personally.</p>
+  <% } %>
+  <p class="muted">You can <a href="/support/status">check its status</a> any time with your ticket number and email.</p>
+</div>
+<p><a class="btn btn-ghost" href="/">Back to shopping</a></p>
+
+<%- include('partials/footer') %>

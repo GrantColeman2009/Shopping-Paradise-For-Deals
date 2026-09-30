@@ -34,7 +34,8 @@ it is a private demo link for your review only.
 - Seller: `hello@northstarelec.ca` / `password123`
 - Seller: `shop@maplehomegoods.ca` / `password123`
 - Seller: `team@pacificactive.ca` / `password123`
-- Admin page: `/admin` (no login in the prototype)
+- Admin page: `/admin` — protected with a login: `admin` / `paradise-demo`
+  (change via ADMIN_USER / ADMIN_PASS before anything resembling a launch)
 
 ## Good to know
 

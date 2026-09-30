@@ -602,6 +602,26 @@ app.post('/api/assistant', supportLimiter, (req, res) => {
   res.json({ reply: result.reply, followups: result.followups, escalate: result.escalate });
 });
 
+// ---- /admin protection (HTTP Basic Auth) ----
+// Demo credentials (override with ADMIN_USER / ADMIN_PASS env vars).
+// Documented in DEPLOY.md; change them before anything resembling a launch.
+const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+const ADMIN_PASS = process.env.ADMIN_PASS || 'paradise-demo';
+function requireAdmin(req, res, next) {
+  const header = req.headers.authorization || '';
+  const [scheme, encoded] = header.split(' ');
+  if (scheme === 'Basic' && encoded) {
+    const decoded = Buffer.from(encoded, 'base64').toString('utf8');
+    const idx = decoded.indexOf(':');
+    const user = idx === -1 ? decoded : decoded.slice(0, idx);
+    const pass = idx === -1 ? '' : decoded.slice(idx + 1);
+    if (user === ADMIN_USER && pass === ADMIN_PASS) return next();
+  }
+  res.set('WWW-Authenticate', 'Basic realm="SPFD Admin"');
+  return res.status(401).send('Admin access required.');
+}
+app.use('/admin', requireAdmin);
+
 app.get('/admin', (req, res) => {
   const stats = {
     sellers: db.prepare('SELECT COUNT(*) AS c FROM sellers').get().c,

@@ -603,10 +603,15 @@ app.post('/api/assistant', supportLimiter, (req, res) => {
 });
 
 // ---- /admin protection (HTTP Basic Auth) ----
-// Demo credentials (override with ADMIN_USER / ADMIN_PASS env vars).
-// Documented in DEPLOY.md; change them before anything resembling a launch.
+// Credentials come from ADMIN_USER / ADMIN_PASS env vars. In production the
+// server refuses to start without ADMIN_PASS set, so the demo fallback below
+// can never be used on a live deploy.
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-const ADMIN_PASS = process.env.ADMIN_PASS || 'paradise-demo';
+const ADMIN_PASS = process.env.ADMIN_PASS || (process.env.NODE_ENV === 'production' ? null : 'paradise-demo-dev');
+if (!ADMIN_PASS) {
+  console.error('FATAL: ADMIN_PASS environment variable must be set in production.');
+  process.exit(1);
+}
 function requireAdmin(req, res, next) {
   const header = req.headers.authorization || '';
   const [scheme, encoded] = header.split(' ');

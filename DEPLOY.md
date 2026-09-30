@@ -34,8 +34,9 @@ it is a private demo link for your review only.
 - Seller: `hello@northstarelec.ca` / `password123`
 - Seller: `shop@maplehomegoods.ca` / `password123`
 - Seller: `team@pacificactive.ca` / `password123`
-- Admin page: `/admin` — protected with a login: `admin` / `paradise-demo`
-  (change via ADMIN_USER / ADMIN_PASS before anything resembling a launch)
+- Admin page: `/admin` — protected with HTTP Basic Auth. Set strong
+  `ADMIN_USER` / `ADMIN_PASS` values in the Render dashboard (never commit
+  real credentials to the repo).
 
 ## Good to know
 

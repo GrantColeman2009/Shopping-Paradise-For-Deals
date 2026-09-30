@@ -3,11 +3,24 @@
 <div class="auth-box">
   <h1>Open your shop</h1>
   <p class="muted">$14/month + 4% per sale. Demo — no real billing.</p>
+  <ol class="steps">
+    <li><strong>1.</strong> Create your account below</li>
+    <li><strong>2.</strong> Add your products</li>
+    <li><strong>3.</strong> Get paid on the 14th and 28th of each month</li>
+  </ol>
   <% if (typeof error !== 'undefined' && error) { %><p class="error"><%= error %></p><% } %>
   <form action="/seller/signup" method="post">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <label>Business name <input type="text" name="business_name" required></label>
     <label>Email <input type="email" name="email" required></label>
     <label>Password <input type="password" name="password" required minlength="8"></label>
+    <label>Country your business is based in
+      <select name="country_code">
+        <% countries.forEach(function(c) { %>
+          <option value="<%= c[0] %>" <%= c[0] === 'CA' ? 'selected' : '' %>><%= flagOf(c[0]) %> <%= c[1] %></option>
+        <% }) %>
+      </select>
+    </label>
     <button type="submit">Create seller account</button>
   </form>
   <p class="muted small">Already selling? <a href="/seller/login">Log in</a></p>

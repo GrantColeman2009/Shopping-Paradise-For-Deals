@@ -2,7 +2,7 @@
 
 <div class="dash-head">
   <h1><%= seller.business_name %></h1>
-  <form action="/seller/logout" method="post"><button type="submit" class="secondary">Log out</button></form>
+  <form action="/seller/logout" method="post"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button type="submit" class="secondary">Log out</button></form>
 </div>
 
 <div class="stat-grid">
@@ -28,6 +28,7 @@
           <td>
             <a href="/seller/products/<%= p.id %>/edit">Edit</a>
             <form action="/seller/products/<%= p.id %>/delete" method="post" class="inline-form" onsubmit="return confirm('Delete this product?')">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <button type="submit" class="danger linklike">Delete</button>
             </form>
           </td>
@@ -58,6 +59,7 @@
         </tbody>
       </table>
       <form action="/seller/orders/<%= o.id %>/status" method="post" class="inline-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <label>Update status
           <select name="status">
             <% ['paid','pending','shipped','delivered'].forEach(function(s) { %>

@@ -5,6 +5,7 @@
 
 <div class="checkout-wrap">
   <form action="/checkout" method="post" class="checkout-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <% if (typeof error !== 'undefined' && error) { %><p class="error"><%= error %></p><% } %>
     <label>Full name <input type="text" name="buyer_name" required></label>
     <label>Email <input type="email" name="buyer_email" required></label>

@@ -36,7 +36,7 @@ a { color: var(--brand-dark); }
 .hero-search input { padding: 0.6rem 1rem; border: none; border-radius: 8px; min-width: 260px; font-size: 1rem; }
 
 /* buttons & forms */
-button, .btn { background: var(--brand); color: #fff; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-size: 1rem; cursor: pointer; text-decoration: none; display: inline-block; }
+button, .btn { background: var(--brand); color: #fff; border: none; padding: 0.7rem 1.3rem; border-radius: 8px; font-size: 1rem; cursor: pointer; text-decoration: none; display: inline-block; min-height: 44px; }
 button:hover, .btn:hover { background: var(--brand-dark); }
 button.secondary { background: #e5e7eb; color: var(--ink); }
 button.danger { background: var(--danger); }
@@ -128,3 +128,16 @@ label { display: block; margin: 0.75rem 0; font-weight: 600; }
 .status-pill { background: #e0e7ff; color: #3730a3; font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 999px; text-transform: uppercase; }
 .stacked-form { max-width: 520px; }
 .stacked-form .secondary { margin-left: 0.5rem; }
+
+/* 100% Canadian owned badge + country-of-origin badges */
+.ca-owned { background: #fff; color: var(--brand-dark); font-size: 0.75rem; font-weight: 800; padding: 0.3rem 0.75rem; border-radius: 999px; white-space: nowrap; }
+.ca-hero { display: inline-block; background: rgba(255,255,255,0.22); color: #fff; font-weight: 800; padding: 0.35rem 1rem; border-radius: 999px; margin: 0 0 0.75rem; }
+.origin-badges { display: flex; gap: 0.35rem; flex-wrap: wrap; margin: 0.35rem 0; }
+.origin-badge { display: inline-block; font-size: 0.72rem; font-weight: 700; padding: 0.18rem 0.55rem; border-radius: 999px; background: #eef2ff; color: #3730a3; }
+.origin-badge.is-ca { background: #e6f4ea; color: #0a5c2e; }
+.origin-panel { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 0.8rem 1.1rem; margin: 1rem 0; }
+.origin-line { margin: 0.3rem 0; }
+
+/* seller signup steps */
+.steps { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 0.9rem 1.1rem 0.9rem 2.2rem; margin: 1rem 0; }
+.steps li { margin: 0.3rem 0; }

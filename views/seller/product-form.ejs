@@ -5,6 +5,7 @@
   <p class="muted">Enter your item price and shipping cost separately — shoppers see one combined price with <span class="free-ship">FREE shipping</span>.</p>
   <% if (typeof error !== 'undefined' && error) { %><p class="error"><%= error %></p><% } %>
   <form action="<%= product.id ? '/seller/products/' + product.id + '/edit' : '/seller/products' %>" method="post">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <label>Product name <input type="text" name="name" value="<%= product.name || '' %>" required></label>
     <label>Description <textarea name="description" rows="4"><%= product.description || '' %></textarea></label>
     <label>Category
@@ -13,6 +14,14 @@
           <option value="<%= c %>" <%= product.category === c ? 'selected' : '' %>><%= c.charAt(0).toUpperCase() + c.slice(1) %></option>
         <% }) %>
       </select>
+    </label>
+    <label>Where was this product made?
+      <select name="origin_country_code">
+        <% countries.forEach(function(c) { %>
+          <option value="<%= c[0] %>" <%= (product.origin_country_code || (seller && seller.country_code) || 'CA') === c[0] ? 'selected' : '' %>><%= flagOf(c[0]) %> <%= c[1] %></option>
+        <% }) %>
+      </select>
+      <span class="muted small">Shown to shoppers as "Made in …" before they buy. A Canadian company can sell a product made anywhere.</span>
     </label>
     <div class="two-col">
       <label>Item price (CAD) <input type="number" name="price" step="0.01" min="0" value="<%= product.price_cents != null ? (product.price_cents/100).toFixed(2) : '' %>" required></label>

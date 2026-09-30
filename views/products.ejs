@@ -22,6 +22,7 @@
         <img src="<%= p.image_url %>" alt="<%= p.name %>" loading="lazy">
         <div class="product-card-body">
           <h3><%= p.name %></h3>
+          <%- include('partials/origin-badges', { p: p }) %>
           <p class="price"><%= fmt(p.price_cents + p.shipping_cost_cents) %> <span class="free-ship">FREE shipping</span></p>
           <p class="muted small"><%= p.category %> · Sold by <%= p.business_name %></p>
         </div>

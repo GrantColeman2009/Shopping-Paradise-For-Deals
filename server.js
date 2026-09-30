@@ -78,11 +78,12 @@ const reviewLimiter = rateLimit({
 app.use(globalLimiter);
 
 // ---- CSRF protection (double-submit cookie, no server state) ----
-const { generateToken, doubleCsrfProtection } = doubleCsrf({
+const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
   getSecret: () => process.env.CSRF_SECRET || 'spfd-csrf-secret-change-in-prod',
+  getSessionIdentifier: (req) => req.sessionID, // bind tokens to the session
   cookieName: 'spfd.csrf',
   cookieOptions: { httpOnly: true, sameSite: 'lax', secure: IS_PROD },
-  getTokenFromRequest: (req) => req.body && req.body._csrf,
+  getCsrfTokenFromRequest: (req) => req.body && req.body._csrf,
 });
 
 // ---- shared helpers ----
@@ -153,7 +154,10 @@ app.use((req, res, next) => {
   res.locals.countries = COUNTRIES;
   res.locals.countryName = countryName;
   res.locals.flagOf = flagOf;
-  res.locals.csrfToken = generateToken(req, res);
+  // The CSRF token is bound to the session ID, so make sure a session
+  // exists before generating it (otherwise the ID rotates per request).
+  if (!req.session.csrfInit) req.session.csrfInit = 1;
+  res.locals.csrfToken = generateCsrfToken(req, res);
   next();
 });
 

@@ -14,6 +14,7 @@
           <td><%= fmt(i.unit) %></td>
           <td>
             <form action="/cart/update" method="post" class="inline-form">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <input type="hidden" name="product_id" value="<%= i.id %>">
               <input type="number" name="qty" value="<%= i.qty %>" min="1" max="<%= i.stock %>">
               <button type="submit">Update</button>
@@ -22,6 +23,7 @@
           <td><%= fmt(i.unit * i.qty) %></td>
           <td>
             <form action="/cart/remove" method="post" class="inline-form">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <input type="hidden" name="product_id" value="<%= i.id %>">
               <button type="submit" class="danger">Remove</button>
             </form>

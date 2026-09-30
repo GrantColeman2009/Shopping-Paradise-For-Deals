@@ -36,6 +36,35 @@ Demo seller logins (password for all three): `password123`
   the next payout date computed automatically).
 - Pricing page, seller sign-up/login, seller dashboard with product
   create/edit/delete and fee views.
+- **Country of origin, front and centre:** the platform carries a "100%
+  Canadian Owned & Operated" badge in the header, footer, and homepage
+  hero. Every seller picks their home country at sign-up, and every
+  product lists where it was made ("Made in …" dropdown, defaulting to the
+  seller's country — a Canadian company can sell a product made anywhere).
+  Product cards show compact badges ("🍁 Canadian company",
+  "🇨🇦 Made in Canada", "Made in 🇨🇳 China", …) and product pages show a
+  full origin panel — all visible *before* purchase. The admin sellers
+  list shows each seller's home country.
+- **SEO basics:** meta descriptions and Open Graph tags on every page
+  (product pages include their image), plus `/sitemap.xml` and
+  `/robots.txt`.
+
+## Security (all free, no paid services)
+
+- **helmet** — secure HTTP headers, with a tuned Content Security Policy
+  (external images allowed; inline `onsubmit` confirm dialogs permitted).
+- **express-rate-limit** — a generous global limit plus stricter limits on
+  seller login (10 attempts / 15 min) and review submission
+  (30 / hour), guarding against brute-force and spam.
+- **CSRF protection** (`csrf-csrf`, double-submit cookie pattern) — every
+  POST form carries a token; token-less or forged posts get a 403.
+- **Session cookie hardening** — `httpOnly`, `SameSite=Lax`, and the
+  `Secure` flag automatically enabled in production (`NODE_ENV=production`).
+- **Output escaping** — all user-supplied content renders through EJS
+  `<%= %>` (escaped); no raw `<%- %>` output of user data anywhere.
+- Passwords are hashed with bcrypt. Note: this is still a demo — before a
+  real launch, add an admin login, move secrets into a proper secret
+  store, and put the database on a hosted service instead of a file.
 
 ## Deploying the demo online
 

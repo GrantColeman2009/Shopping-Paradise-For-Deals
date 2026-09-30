@@ -15,6 +15,26 @@
 <p>Seller payouts: 14th and 28th of each month at 10:00 AM PST.</p>
 <p><strong>Next payout: <%= nextPayout %></strong></p>
 
+<h2>Sellers</h2>
+<% if (sellers.length === 0) { %>
+  <p class="muted">No sellers yet.</p>
+<% } else { %>
+  <table class="cart-table">
+    <thead><tr><th>Business</th><th>Email</th><th>Home country</th><th>Products</th><th>Joined</th></tr></thead>
+    <tbody>
+      <% sellers.forEach(function(s) { %>
+        <tr>
+          <td><%= s.business_name %></td>
+          <td><%= s.email %></td>
+          <td><%= flagOf(s.country_code) %> <%= countryName(s.country_code) %></td>
+          <td><%= s.products %></td>
+          <td class="muted small"><%= s.created_at %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+<% } %>
+
 <h2>Revenue by month</h2>
 <% if (revenueByMonth.length === 0) { %>
   <p class="muted">No revenue yet.</p>
@@ -59,6 +79,7 @@
 
 <h2>Amazon Associates settings</h2>
 <form action="/admin/settings" method="post" class="inline-form">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
   <label>Associates tag ID <input type="text" name="amazon_tag" value="<%= amazonTag %>" size="30"></label>
   <button type="submit" class="secondary">Save</button>
 </form>
@@ -67,6 +88,7 @@
 <% if (editDeal) { %>
   <h3>Edit deal #<%= editDeal.id %></h3>
   <form action="/admin/deals/<%= editDeal.id %>" method="post" class="stacked-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <label>Title <input type="text" name="title" value="<%= editDeal.title %>" required></label>
     <label>Brand <input type="text" name="brand" value="<%= editDeal.brand %>"></label>
     <label>Price (CAD) <input type="number" name="price" step="0.01" min="0" value="<%= (editDeal.price_cents / 100).toFixed(2) %>" required></label>
@@ -78,6 +100,7 @@
 <% } else { %>
   <h3>Add a deal</h3>
   <form action="/admin/deals" method="post" class="stacked-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <label>Title <input type="text" name="title" required></label>
     <label>Brand <input type="text" name="brand"></label>
     <label>Price (CAD) <input type="number" name="price" step="0.01" min="0" required></label>
@@ -103,6 +126,7 @@
           <td>
             <a href="/admin?edit=<%= d.id %>">Edit</a>
             <form action="/admin/deals/<%= d.id %>/delete" method="post" class="inline-form" onsubmit="return confirm('Delete this deal?')">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <button type="submit" class="danger linklike">Delete</button>
             </form>
           </td>

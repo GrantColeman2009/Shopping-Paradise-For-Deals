@@ -10,7 +10,7 @@
     <tbody>
       <% items.forEach(function(i) { %>
         <tr>
-          <td><a href="/products/<%= i.id %>"><%= i.name %></a><br><span class="free-ship">FREE shipping</span> <span class="muted small">via <%= carrierName(i.shipping_carrier) %></span></td>
+          <td><a href="/products/<%= i.id %>"><%= i.name %></a><br><span class="muted small">via <%= carrierName(i.shipping_carrier) %> · shipping added at checkout</span></td>
           <td><%= fmt(i.unit) %></td>
           <td>
             <form action="/cart/update" method="post" class="inline-form">
@@ -32,7 +32,7 @@
       <% }) %>
     </tbody>
   </table>
-  <p class="cart-total">Subtotal: <strong><%= fmt(subtotal) %></strong> <span class="free-ship">FREE shipping included</span></p>
+  <p class="cart-total">Subtotal: <strong><%= fmt(subtotal) %></strong> <span class="muted small">(items only — shipping and tax added at checkout)</span></p>
   <p><a class="btn" href="/checkout">Proceed to checkout</a></p>
 <% } %>
 

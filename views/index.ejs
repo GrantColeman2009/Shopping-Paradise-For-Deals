@@ -3,7 +3,7 @@
 <section class="hero">
   <h1>Welcome to Shopping Paradise For Deals</h1>
   <p class="ca-hero">🍁 100% Canadian owned &amp; operated</p>
-  <p class="hero-sub">Every price you see is the price you pay — <strong>FREE shipping</strong> is baked into every deal. No surprises at checkout.</p>
+  <p class="hero-sub">Honest prices — zero shipping baked in. Shipping, taxes and your final total are shown separately at checkout.</p>
   <form class="hero-search" action="/products" method="get">
     <input type="text" name="search" placeholder="Search products…">
     <button type="submit">Search</button>
@@ -31,7 +31,7 @@
         <div class="product-card-body">
           <h3><%= p.name %></h3>
           <%- include('partials/origin-badges', { p: p }) %>
-          <p class="price"><%= fmt(p.price_cents + p.shipping_cost_cents) %> <span class="free-ship">FREE shipping</span></p>
+          <p class="price"><%= fmt(p.price_cents) %></p><p class="muted small">+ shipping at checkout</p>
           <p class="muted small">Sold by <%= p.business_name %></p>
         </div>
       </a>

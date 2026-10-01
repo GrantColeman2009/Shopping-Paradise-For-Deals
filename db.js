@@ -90,6 +90,13 @@ db.prepare(
   "INSERT OR IGNORE INTO settings (key, value) VALUES ('amazon_tag', 'shoppingparadise-20')"
 ).run();
 
+// Tax rate applied at checkout, in percent (e.g. '5' = 5%). Default 0 until
+// the accountant configures real GST/HST handling. Shown as its own line on
+// every checkout and order — never folded into prices.
+db.prepare(
+  "INSERT OR IGNORE INTO settings (key, value) VALUES ('tax_rate_percent', '0')"
+).run();
+
 // Column migrations (idempotent): seller home country and product origin
 // country. A Canadian company can sell a product made anywhere — the two
 // fields are intentionally independent.
@@ -103,6 +110,11 @@ for (const [table, column, def] of [
   ['orders', 'ship_option', 'TEXT'],
   ['orders', 'shipping_cents', 'INTEGER NOT NULL DEFAULT 0'],
   ['orders', 'insured_cents', 'INTEGER NOT NULL DEFAULT 0'],
+  ['orders', 'tax_cents', 'INTEGER NOT NULL DEFAULT 0'],
+  // Per-product express shipping rates (per item, CAD cents). Sellers set
+  // these explicitly — express is never derived from standard by formula.
+  ['products', 'express_ca_us_cents', 'INTEGER NOT NULL DEFAULT 0'],
+  ['products', 'express_intl_cents', 'INTEGER NOT NULL DEFAULT 0'],
 ]) {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
   if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);

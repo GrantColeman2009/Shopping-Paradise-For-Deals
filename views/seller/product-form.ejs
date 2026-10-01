@@ -2,7 +2,7 @@
 
 <div class="auth-box wide">
   <h1><%= product.id ? 'Edit product' : 'Add a product' %></h1>
-  <p class="muted">Enter your item price and shipping costs separately — shoppers in Canada &amp; the USA see one combined price with <span class="free-ship">FREE shipping</span>; shoppers elsewhere pay your international rate at checkout.</p>
+  <p class="muted">Enter your item price and four shipping rates separately — shoppers everywhere see the item price on listings and pay shipping as a separate line at checkout. Nothing is ever hidden in the price.</p>
   <% if (typeof error !== 'undefined' && error) { %><p class="error"><%= error %></p><% } %>
   <form action="<%= product.id ? '/seller/products/' + product.id + '/edit' : '/seller/products' %>" method="post">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -25,18 +25,22 @@
     </label>
     <div class="two-col">
       <label>Item price (CAD) <input type="number" name="price" step="0.01" min="0" value="<%= product.price_cents != null ? (product.price_cents/100).toFixed(2) : '' %>" required></label>
-      <label>Your shipping cost (CAD) <input type="number" name="shipping_cost" step="0.01" min="0" value="<%= product.shipping_cost_cents != null ? (product.shipping_cost_cents/100).toFixed(2) : '0' %>" required></label>
+      <label>Shipping cost — Standard, Canada &amp; USA (CAD) <input type="number" name="shipping_cost" step="0.01" min="0" value="<%= product.shipping_cost_cents != null ? (product.shipping_cost_cents/100).toFixed(2) : '0' %>" required></label>
     </div>
     <div class="two-col">
-      <label>International shipping — standard rate (CAD) <input type="number" name="intl_shipping" step="0.01" min="0" value="<%= product.intl_shipping_cents != null ? (product.intl_shipping_cents/100).toFixed(2) : '0' %>" required>
-        <span class="muted small">Charged to buyers outside Canada &amp; the USA. They choose Standard or Express (1.8× this rate) at checkout.</span>
+      <label>Shipping cost — Standard, other countries (CAD) <input type="number" name="intl_shipping" step="0.01" min="0" value="<%= product.intl_shipping_cents != null ? (product.intl_shipping_cents/100).toFixed(2) : '0' %>" required>
+        <span class="muted small">Charged at checkout to buyers outside Canada &amp; the USA.</span>
       </label>
+      <label>Shipping cost — Express, Canada &amp; USA (CAD) <input type="number" name="express_ca_us" step="0.01" min="0" value="<%= product.express_ca_us_cents != null && product.express_ca_us_cents > 0 ? (product.express_ca_us_cents/100).toFixed(2) : '' %>" placeholder="leave blank = standard rate">
+        <span class="muted small">Set this explicitly — express is never calculated from the standard rate.</span>
+      </label>
+      <label>Shipping cost — Express, other countries (CAD) <input type="number" name="express_intl" step="0.01" min="0" value="<%= product.express_intl_cents != null && product.express_intl_cents > 0 ? (product.express_intl_cents/100).toFixed(2) : '' %>" placeholder="leave blank = standard rate"></label>
       <label>Stock <input type="number" name="stock" min="0" value="<%= product.stock != null ? product.stock : '10' %>" required></label>
     </div>
     <div class="two-col">
       <label>Image URL <input type="url" name="image_url" value="<%= product.image_url || '' %>" placeholder="https://…"></label>
     </div>
-    <p class="muted">Your orders ship via <strong><%= carrierName(carrierKeyForCountry((seller && seller.country_code) || 'CA')) %></strong> — your country's national postal service. This is set automatically and shown to shoppers before they buy.</p>
+    <p class="muted">Your orders ship via <strong><%= carrierName(carrierKeyForCountry((seller && seller.country_code) || 'CA')) %></strong> — your country's national postal service. This is set automatically and shown to shoppers before they buy. Your item price never includes shipping — it is charged to the buyer at checkout for every destination.</p>
     <button type="submit"><%= product.id ? 'Save changes' : 'List product' %></button>
   </form>
 </div>

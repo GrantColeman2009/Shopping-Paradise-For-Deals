@@ -117,6 +117,19 @@
   <button type="submit" class="secondary">Save</button>
 </form>
 
+<h2>Tax &amp; shipping configuration</h2>
+<form action="/admin/settings" method="post" class="stacked-form">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label>Tax rate applied at checkout (%) <input type="number" name="tax_rate_percent" step="0.01" min="0" value="<%= taxRatePct %>"></label>
+  <p class="muted small">Shown as its own line on every checkout and order. Keep at 0 until your accountant confirms the correct GST/HST treatment.</p>
+  <h3>Maximum insured shipment value per carrier (CAD)</h3>
+  <p class="muted small">Conservative defaults; override only when you have the carrier's current written maximum.</p>
+  <% carrierCaps.forEach(function(c) { %>
+    <label><%= c.name %> (CAD) <input type="number" name="insurance_cap_<%= c.key %>" step="0.01" min="0" value="<%= c.cap %>"></label>
+  <% }) %>
+  <button type="submit" class="secondary">Save tax &amp; shipping settings</button>
+</form>
+
 <h2>Brand-Name Deals</h2>
 <% if (editDeal) { %>
   <h3>Edit deal #<%= editDeal.id %></h3>

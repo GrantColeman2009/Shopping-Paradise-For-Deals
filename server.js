@@ -11,7 +11,7 @@ const payments = require('./lib/payments');
 const { answer: assistantAnswer } = require('./lib/assistant');
 const { COUNTRIES, countryName, flagOf, isValidCountry,
   carrierByKey, carrierKeyForCountry, isServiceableCountry, serviceableCountries,
-  postalServiceFor, EXPRESS_MULTIPLIER } = require('./lib/countries');
+  postalServiceFor, NATIONAL_POSTAL_SERVICES, DEFAULT_MAX_INSURED_CAD } = require('./lib/countries');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -129,41 +129,65 @@ const fmt = (cents) => '$' + (cents / 100).toFixed(2);
 app.locals.fmt = fmt;
 app.locals.carrierName = carrierName;
 app.locals.carrierKeyForCountry = carrierKeyForCountry;
-const buyerPrice = (p) => p.price_cents + p.shipping_cost_cents;
+// Listed prices carry ZERO shipping — every price shown on the site is the
+// item price only. All shipping is charged at checkout, for every served
+// destination (Canada, USA, and all other served countries alike).
+const itemPrice = (p) => p.price_cents;
 
-// ---- international shipping quotes ----
-// Canada & USA: shipping is baked into the listed price (FREE shipping for
-// the buyer). Every other served country: the buyer chooses Standard or
-// Express at checkout and that shipping cost is added to the order total.
-// Each seller's goods travel via their home country's national postal
-// service. The insured value of a line never exceeds the carrier's maximum
-// coverage; insurance claims are handled by the platform (Adam).
+// ---- checkout quoting ----
+// Shipping is quoted per line from the seller's explicit per-item rates:
+//   - Canada & USA:      standard = shipping_cost_cents, express = express_ca_us_cents
+//   - other countries:   standard = intl_shipping_cents, express = express_intl_cents
+// Express rates are set explicitly by the seller (blank = standard rate
+// applies); express is NEVER derived from standard by a multiplier.
+// Tax is the configured tax_rate_percent setting, applied to goods+shipping
+// and shown as its own line. The insured value of a line never exceeds the
+// carrier's configured maximum coverage; insurance claims are handled by
+// the platform (Adam).
+function getTaxRatePct() {
+  const v = parseFloat(getSetting('tax_rate_percent'));
+  return Number.isFinite(v) && v >= 0 ? v : 0;
+}
+
+// Effective insured-value cap (CAD) for a carrier: explicit admin override
+// (settings key insurance_cap_<carrier key>) wins; otherwise the
+// conservative default in lib/countries.js.
+function getCarrierCapCad(carrierKey) {
+  const override = parseFloat(getSetting('insurance_cap_' + carrierKey));
+  if (Number.isFinite(override) && override > 0) return override;
+  const svc = carrierByKey(carrierKey);
+  return svc ? svc.maxInsuredCad : DEFAULT_MAX_INSURED_CAD;
+}
+
+function shipRateFor(p, zone, express) {
+  if (zone === 'ca_us') {
+    return express ? (p.express_ca_us_cents || 0) : (p.shipping_cost_cents || 0);
+  }
+  return express ? (p.express_intl_cents || 0) : (p.intl_shipping_cents || 0);
+}
+
 function quoteCheckout(items, destCountry, shipOption) {
   const code = String(destCountry || 'CA').toUpperCase();
-  const intl = code !== 'CA' && code !== 'US';
+  const zone = (code === 'CA' || code === 'US') ? 'ca_us' : 'intl';
   const express = shipOption === 'express';
-  const mult = express ? EXPRESS_MULTIPLIER : 1;
+  const taxRatePct = getTaxRatePct();
   let goodsCents = 0, shippingCents = 0, insuredCents = 0;
   const lines = items.map((i) => {
     const qty = i.qty;
     const svc = carrierByKey(i.shipping_carrier) || carrierByKey('canada_post');
-    const cap = Math.round(svc.maxInsuredCad * 100);
-    if (!intl) {
-      const lineTotal = (i.price_cents + i.shipping_cost_cents) * qty;
-      goodsCents += lineTotal;
-      insuredCents += Math.min(lineTotal, cap);
-      return { ...i, lineGoods: lineTotal, lineShipping: 0, carrierLabel: svc.name };
-    }
+    const cap = Math.round(getCarrierCapCad(svc.key) * 100);
     const lineGoods = i.price_cents * qty;
-    const lineShipping = Math.round((i.intl_shipping_cents || 0) * qty * mult);
+    const lineShipping = shipRateFor(i, zone, express) * qty;
     goodsCents += lineGoods;
     shippingCents += lineShipping;
     insuredCents += Math.min(lineGoods, cap);
     return { ...i, lineGoods, lineShipping, carrierLabel: svc.name };
   });
+  const taxCents = Math.round((goodsCents + shippingCents) * taxRatePct / 100);
   return {
-    code, intl, express, lines, goodsCents, shippingCents,
-    totalCents: goodsCents + shippingCents, insuredCents,
+    code, zone, express, lines, goodsCents, shippingCents,
+    taxCents, taxRatePct,
+    totalCents: goodsCents + shippingCents + taxCents, insuredCents,
   };
 }
 
@@ -258,7 +282,7 @@ function cartDetails(cart) {
   const items = rows.map((p) => ({
     ...p,
     qty: cart[p.id],
-    unit: buyerPrice(p),
+    unit: itemPrice(p), // listed price = item price only; shipping is added at checkout
   }));
   const subtotal = items.reduce((s, i) => s + i.unit * i.qty, 0);
   return { items, subtotal };
@@ -299,7 +323,7 @@ app.get('/', (req, res) => {
     .all();
   res.render('index', {
     featured, categories,
-    description: 'Shopping Paradise For Deals — FREE shipping in Canada & USA, international shipping options at checkout. A 100% Canadian owned marketplace with deals from sellers around the world.',
+    description: 'Shopping Paradise For Deals — honest prices with no shipping baked in; shipping, taxes and total shown separately at checkout. A 100% Canadian owned marketplace with deals from sellers around the world.',
     ogImage: featured.length ? featured[0].image_url : undefined,
   });
 });
@@ -316,7 +340,7 @@ app.get('/products', (req, res) => {
   const products = db.prepare(sql).all(...params);
   res.render('products', {
     products, categories, search, category,
-    description: 'Shop all products on Shopping Paradise For Deals — FREE shipping in Canada & USA, from a 100% Canadian owned marketplace.',
+    description: 'Shop all products on Shopping Paradise For Deals — prices exclude shipping; shipping and taxes calculated at checkout. A 100% Canadian owned marketplace.',
   });
 });
 
@@ -333,7 +357,7 @@ app.get('/products/:id', (req, res) => {
     : null;
   res.render('product', {
     product, reviews, avgRating: avg, reviewError: null,
-    description: `${product.name} — ${fmt(product.price_cents + product.shipping_cost_cents)} with FREE shipping in Canada & USA on Shopping Paradise For Deals, a 100% Canadian owned marketplace.`,
+    description: `${product.name} — ${fmt(product.price_cents)} plus shipping at checkout, on Shopping Paradise For Deals, a 100% Canadian owned marketplace.`,
     ogImage: product.image_url,
   });
 });
@@ -402,9 +426,10 @@ app.post('/cart/remove', (req, res) => {
 app.get('/checkout', (req, res) => {
   const { items, subtotal } = cartDetails(getCart(req));
   if (items.length === 0) return res.redirect('/cart');
+  const q = quoteCheckout(items, 'CA', 'standard');
   res.render('checkout', {
     items, subtotal, destCountry: 'CA', shipOption: 'standard',
-    countries: serviceableCountries(), expressMult: EXPRESS_MULTIPLIER,
+    countries: serviceableCountries(), taxRatePct: getTaxRatePct(), q,
   });
 });
 
@@ -416,7 +441,8 @@ app.post('/checkout', async (req, res) => {
   const shipOption = ship_option === 'express' ? 'express' : 'standard';
   const renderCheckout = (error) => res.status(400).render('checkout', {
     items, subtotal, destCountry, shipOption,
-    countries: serviceableCountries(), expressMult: EXPRESS_MULTIPLIER, error,
+    countries: serviceableCountries(), taxRatePct: getTaxRatePct(),
+    q: quoteCheckout(items, destCountry, shipOption), error,
   });
   if (!buyer_name || !buyer_email || !address) {
     return renderCheckout('Please fill in every field.');
@@ -429,23 +455,23 @@ app.post('/checkout', async (req, res) => {
   }
   const q = quoteCheckout(items, destCountry, shipOption);
 
-  const fee = Math.round(q.totalCents * FEE_RATE);
+  // 4% marketplace fee on goods + shipping (pre-tax).
+  const fee = Math.round((q.goodsCents + q.shippingCents) * FEE_RATE);
   const insertOrder = db.prepare(
-    'INSERT INTO orders (buyer_name, buyer_email, address, subtotal_cents, platform_fee_cents, total_cents, status, dest_country_code, ship_option, shipping_cents, insured_cents) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO orders (buyer_name, buyer_email, address, subtotal_cents, platform_fee_cents, total_cents, status, dest_country_code, ship_option, shipping_cents, insured_cents, tax_cents) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
   const insertItem = db.prepare(
     'INSERT INTO order_items (order_id, product_id, qty, unit_price_cents) VALUES (?, ?, ?, ?)'
   );
 
   // Orders start as pending; stock is decremented only when payment confirms.
+  // subtotal = goods; shipping and tax are stored on their own columns.
   const orderId = db.transaction(() => {
     const o = insertOrder.run(buyer_name.trim(), buyer_email.trim(), address.trim(),
-      q.totalCents, fee, q.totalCents, 'pending', q.code, q.intl ? shipOption : null,
-      q.shippingCents, q.insuredCents);
+      q.goodsCents, fee, q.totalCents, 'pending', q.code, shipOption,
+      q.shippingCents, q.insuredCents, q.taxCents);
     for (const i of items) {
-      // Domestic: unit price already includes shipping (as before). International:
-      // goods only — shipping is stored on the order itself.
-      insertItem.run(o.lastInsertRowid, i.id, i.qty, q.intl ? i.price_cents : i.unit);
+      insertItem.run(o.lastInsertRowid, i.id, i.qty, i.price_cents);
     }
     return Number(o.lastInsertRowid);
   })();
@@ -464,16 +490,23 @@ app.post('/checkout', async (req, res) => {
   }
 
   // Live/test mode: hand off to Stripe's hosted checkout page.
+  // Items are charged at the listed item price; shipping and tax are
+  // separate line items so the buyer sees the full breakdown.
   const baseUrl = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`;
-  const stripeItems = q.intl
-    ? items.map((i) => ({ name: i.name, unit: i.price_cents, qty: i.qty }))
-    : items;
+  const stripeItems = items.map((i) => ({ name: i.name, unit: i.price_cents, qty: i.qty }));
   let shippingLine = null;
-  if (q.intl && q.shippingCents > 0) {
+  if (q.shippingCents > 0) {
     const carriers = [...new Set(q.lines.map((l) => l.carrierLabel))].join(', ');
     shippingLine = {
-      description: `International shipping — ${shipOption === 'express' ? 'Express' : 'Standard'} via ${carriers}`,
+      description: `Shipping — ${shipOption === 'express' ? 'Express' : 'Standard'} via ${carriers}`,
       amountCents: q.shippingCents,
+    };
+  }
+  let taxLine = null;
+  if (q.taxCents > 0) {
+    taxLine = {
+      description: `Tax (${q.taxRatePct}%)`,
+      amountCents: q.taxCents,
     };
   }
   let session;
@@ -481,6 +514,7 @@ app.post('/checkout', async (req, res) => {
     session = await payments.createCheckoutSession({
       items: stripeItems,
       shipping: shippingLine,
+      tax: taxLine,
       orderId,
       buyerEmail: buyer_email.trim(),
       successUrl: `${baseUrl}/checkout/success`,
@@ -633,10 +667,24 @@ app.get('/seller/products/new', requireSeller, (req, res) => {
   res.render('seller/product-form', { product: {} });
 });
 
+// Parse the seller's per-item shipping rates (CAD -> cents). Listed prices
+// carry zero shipping; these rates are charged at checkout for every
+// destination. Express rates are explicit — when the seller leaves an
+// express rate blank it is stored as the standard rate (never derived by
+// formula), so checkout can always offer both options honestly.
+function parseShippingRates(body) {
+  const stdCaUs = Math.round(parseFloat(body.shipping_cost || '0') * 100);
+  const stdIntl = Math.round(parseFloat(body.intl_shipping || '0') * 100);
+  const expCaUsRaw = (body.express_ca_us || '').trim();
+  const expIntlRaw = (body.express_intl || '').trim();
+  const expCaUs = expCaUsRaw === '' ? stdCaUs : Math.round(parseFloat(expCaUsRaw) * 100);
+  const expIntl = expIntlRaw === '' ? stdIntl : Math.round(parseFloat(expIntlRaw) * 100);
+  return { stdCaUs, stdIntl, expCaUs, expIntl };
+}
+
 app.post('/seller/products', requireSeller, (req, res) => {
   const price_cents = Math.round(parseFloat(req.body.price || '0') * 100);
-  const shipping_cost_cents = Math.round(parseFloat(req.body.shipping_cost || '0') * 100);
-  const intl_shipping_cents = Math.round(parseFloat(req.body.intl_shipping || '0') * 100);
+  const { stdCaUs, stdIntl, expCaUs, expIntl } = parseShippingRates(req.body);
   const stock = Math.max(0, parseInt(req.body.stock, 10) || 0);
   const me = db.prepare('SELECT country_code FROM sellers WHERE id = ?').get(req.session.sellerId);
   const origin_country_code = isValidCountry(req.body.origin_country_code)
@@ -644,19 +692,21 @@ app.post('/seller/products', requireSeller, (req, res) => {
     : (me.country_code || 'CA');
   // Sellers always ship via their home country's national postal service.
   const shipping_carrier = carrierKeyForCountry(me.country_code || 'CA');
-  if (!req.body.name || price_cents < 0 || shipping_cost_cents < 0 || intl_shipping_cents < 0) {
-    return res.status(400).render('seller/product-form', { product: req.body, error: 'Name, price and shipping costs are required.' });
+  if (!req.body.name || price_cents < 0 || stdCaUs < 0 || stdIntl < 0 || expCaUs < 0 || expIntl < 0) {
+    return res.status(400).render('seller/product-form', { product: req.body, error: 'Name, price and shipping rates are required.' });
   }
   db.prepare(
-    'INSERT INTO products (seller_id, name, description, category, price_cents, shipping_cost_cents, intl_shipping_cents, image_url, stock, origin_country_code, shipping_carrier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO products (seller_id, name, description, category, price_cents, shipping_cost_cents, intl_shipping_cents, express_ca_us_cents, express_intl_cents, image_url, stock, origin_country_code, shipping_carrier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(
     req.session.sellerId,
     req.body.name.trim(),
     (req.body.description || '').trim(),
     req.body.category || 'other',
     price_cents,
-    shipping_cost_cents,
-    intl_shipping_cents,
+    stdCaUs,
+    stdIntl,
+    expCaUs,
+    expIntl,
     (req.body.image_url || '').trim(),
     stock,
     origin_country_code,
@@ -675,23 +725,27 @@ app.post('/seller/products/:id/edit', requireSeller, (req, res) => {
   const product = sellerProduct(req, req.params.id);
   if (!product) return res.status(404).render('404');
   const price_cents = Math.round(parseFloat(req.body.price || '0') * 100);
-  const shipping_cost_cents = Math.round(parseFloat(req.body.shipping_cost || '0') * 100);
-  const intl_shipping_cents = Math.round(parseFloat(req.body.intl_shipping || '0') * 100);
+  const { stdCaUs, stdIntl, expCaUs, expIntl } = parseShippingRates(req.body);
   const stock = Math.max(0, parseInt(req.body.stock, 10) || 0);
   const origin_country_code = isValidCountry(req.body.origin_country_code)
     ? String(req.body.origin_country_code).toUpperCase()
     : (product.origin_country_code || 'CA');
   const me = db.prepare('SELECT country_code FROM sellers WHERE id = ?').get(req.session.sellerId);
   const shipping_carrier = carrierKeyForCountry((me && me.country_code) || 'CA');
+  if (!req.body.name || price_cents < 0 || stdCaUs < 0 || stdIntl < 0 || expCaUs < 0 || expIntl < 0) {
+    return res.status(400).render('seller/product-form', { product: { ...product, ...req.body }, error: 'Name, price and shipping rates are required.' });
+  }
   db.prepare(
-    'UPDATE products SET name = ?, description = ?, category = ?, price_cents = ?, shipping_cost_cents = ?, intl_shipping_cents = ?, image_url = ?, stock = ?, origin_country_code = ?, shipping_carrier = ? WHERE id = ?'
+    'UPDATE products SET name = ?, description = ?, category = ?, price_cents = ?, shipping_cost_cents = ?, intl_shipping_cents = ?, express_ca_us_cents = ?, express_intl_cents = ?, image_url = ?, stock = ?, origin_country_code = ?, shipping_carrier = ? WHERE id = ?'
   ).run(
     req.body.name.trim(),
     (req.body.description || '').trim(),
     req.body.category || 'other',
     price_cents,
-    shipping_cost_cents,
-    intl_shipping_cents,
+    stdCaUs,
+    stdIntl,
+    expCaUs,
+    expIntl,
     (req.body.image_url || '').trim(),
     stock,
     origin_country_code,
@@ -866,6 +920,10 @@ app.get('/admin', (req, res) => {
     tickets, ticketCategoryLabel: (c) => TICKET_CATEGORY_LABELS[c] || c,
     ticketStatuses: TICKET_STATUSES,
     nextPayout: fmtPayout(nextPayoutDate()),
+    taxRatePct: getTaxRatePct(),
+    carrierCaps: Object.values(NATIONAL_POSTAL_SERVICES).map((svc) => ({
+      key: svc.key, name: svc.name, cap: getCarrierCapCad(svc.key),
+    })),
   });
 });
 
@@ -906,8 +964,18 @@ app.post('/admin/deals/:id/delete', (req, res) => {
 
 app.post('/admin/settings', (req, res) => {
   const tag = (req.body.amazon_tag || '').trim();
-  db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
-    .run('amazon_tag', tag);
+  const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+  upsert.run('amazon_tag', tag);
+  // Tax rate (percent). Shown as its own checkout line; 0 until configured.
+  const taxPct = parseFloat(req.body.tax_rate_percent);
+  upsert.run('tax_rate_percent', Number.isFinite(taxPct) && taxPct >= 0 ? String(taxPct) : '0');
+  // Per-carrier insured-value caps (CAD). Explicit overrides of the
+  // conservative defaults in lib/countries.js.
+  for (const svc of Object.values(NATIONAL_POSTAL_SERVICES)) {
+    const v = parseFloat(req.body['insurance_cap_' + svc.key]);
+    if (Number.isFinite(v) && v > 0) upsert.run('insurance_cap_' + svc.key, String(v));
+    else db.prepare('DELETE FROM settings WHERE key = ?').run('insurance_cap_' + svc.key);
+  }
   res.redirect('/admin');
 });
 

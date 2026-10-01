@@ -23,7 +23,7 @@
       <% products.forEach(function(p) { %>
         <tr>
           <td><a href="/products/<%= p.id %>"><%= p.name %></a></td>
-          <td><%= fmt(p.price_cents + p.shipping_cost_cents) %> <span class="free-ship">FREE shipping</span></td>
+          <td><%= fmt(p.price_cents) %><br><span class="muted small">+ ship CA/US <%= fmt(p.shipping_cost_cents) %> · + ship intl <%= fmt(p.intl_shipping_cents) %></span></td>
           <td><%= p.stock %></td>
           <td>
             <a href="/seller/products/<%= p.id %>/edit">Edit</a>

@@ -30,6 +30,7 @@
       <label><input type="radio" name="ship_option" value="express" <%= shipOption === 'express' ? 'checked' : '' %>> Express — <span id="exp-price"></span></label>
       <p class="muted small" id="ship-carriers"></p>
     </fieldset>
+    <label class="terms-accept"><input type="checkbox" name="accept_terms" required> <span>I agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service (draft)</a>, <a href="/privacy" target="_blank" rel="noopener">Privacy Policy (draft)</a> and <a href="/returns" target="_blank" rel="noopener">Returns &amp; Disputes Policy (draft)</a>.</span></label>
     <button type="submit"><% if (stripeMode === 'demo') { %>Place order<% } else { %>Continue to secure payment<% } %> — <span id="total-btn"><%= fmt(subtotal) %></span></button>
   </form>
   <aside class="order-summary">

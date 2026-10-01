@@ -421,6 +421,9 @@ app.post('/checkout', async (req, res) => {
   if (!buyer_name || !buyer_email || !address) {
     return renderCheckout('Please fill in every field.');
   }
+  if (!req.body.accept_terms) {
+    return renderCheckout('Please accept the Terms of Service, Privacy Policy and Returns Policy to place your order.');
+  }
   if (!isServiceableCountry(destCountry)) {
     return renderCheckout('Sorry — we do not ship to that country yet.');
   }
@@ -710,6 +713,21 @@ app.get('/pricing', (req, res) => res.render('pricing'));
 app.get('/help', (req, res) => res.render('help', {
   description: 'Help centre for Shopping Paradise For Deals — answers about orders, free shipping, returns, selling, fees and payouts.',
 }));
+
+// Policy pages — DRAFT documents under BC lawyer review, not yet in effect.
+const fs = require('fs');
+const POLICIES = {
+  terms: { file: 'terms.html', title: 'Terms of Service', description: 'Terms of Service (draft) for Shopping Paradise For Deals.' },
+  privacy: { file: 'privacy.html', title: 'Privacy Policy', description: 'Privacy Policy (draft) for Shopping Paradise For Deals.' },
+  'seller-agreement': { file: 'seller-agreement.html', title: 'Seller Agreement', description: 'Seller Agreement (draft) for Shopping Paradise For Deals.' },
+  returns: { file: 'returns.html', title: 'Returns & Disputes Policy', description: 'Returns and Disputes Policy (draft) for Shopping Paradise For Deals.' },
+};
+for (const [slug, meta] of Object.entries(POLICIES)) {
+  app.get('/' + slug, (req, res) => {
+    const bodyHtml = fs.readFileSync(path.join(__dirname, 'policy-html', meta.file), 'utf8');
+    res.render('policy', { title: meta.title + ' — DRAFT', description: meta.description, bodyHtml });
+  });
+}
 
 const TICKET_CATEGORIES = ['order_issue', 'payment_dispute', 'seller_question', 'product_question', 'account_help', 'other'];
 const TICKET_CATEGORY_LABELS = {

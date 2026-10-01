@@ -44,8 +44,13 @@ it is a private demo link for your review only.
   ~30 seconds to wake up. That is normal.
 - Demo data resets when Render redeploys. Fine for review; a real launch
   would use a hosted database instead of the built-in file.
-- When you are ready for real payments, your own Stripe account plugs into
-  the existing demo-payments module — nothing else changes.
+- Real payments run through Stripe Checkout (Stripe-hosted payment page).
+  Set in the Render dashboard: `STRIPE_SECRET_KEY` (start with a test key
+  `sk_test_...`; switch to a live key only when ready), plus
+  `STRIPE_WEBHOOK_SECRET` from a webhook endpoint pointed at
+  `https://<your-app>/webhooks/stripe` listening for
+  `checkout.session.completed`. Without `STRIPE_SECRET_KEY` the site stays
+  in demo mode and no real money moves.
 
 ## Taking it down
 

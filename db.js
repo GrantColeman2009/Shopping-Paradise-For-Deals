@@ -97,6 +97,7 @@ for (const [table, column, def] of [
   ['sellers', 'country_code', "TEXT NOT NULL DEFAULT 'CA'"],
   ['products', 'origin_country_code', "TEXT NOT NULL DEFAULT 'CA'"],
   ['products', 'shipping_carrier', "TEXT NOT NULL DEFAULT 'canada_post'"],
+  ['orders', 'stripe_session_id', 'TEXT'],
 ]) {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
   if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);

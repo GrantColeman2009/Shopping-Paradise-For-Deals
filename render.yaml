@@ -16,3 +16,12 @@ services:
         value: admin
       - key: ADMIN_PASS
         generateValue: true
+      # Stripe payments. Set these in the Render dashboard (never commit keys).
+      # Start with TEST keys (sk_test_...); switch to live keys only when ready.
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      # Public base URL used for Stripe redirect URLs (defaults to request host).
+      - key: PUBLIC_BASE_URL
+        value: https://shopping-paradise-for-deals.onrender.com

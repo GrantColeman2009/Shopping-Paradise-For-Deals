@@ -1,7 +1,13 @@
 <%- include('partials/header', { title: 'Checkout', cartCount, seller }) %>
 
 <h1>Checkout</h1>
+<% if (stripeMode === 'live') { %>
+<p class="muted">Secure checkout — you'll complete payment on Stripe's encrypted payment page.</p>
+<% } else if (stripeMode === 'test') { %>
+<p class="muted">Test mode — no real money moves. Use card <code>4242 4242 4242 4242</code>, any future expiry, any CVC.</p>
+<% } else { %>
 <p class="muted">Demo checkout — no real payment is processed.</p>
+<% } %>
 
 <div class="checkout-wrap">
   <form action="/checkout" method="post" class="checkout-form">
@@ -10,7 +16,7 @@
     <label>Full name <input type="text" name="buyer_name" required></label>
     <label>Email <input type="email" name="buyer_email" required></label>
     <label>Shipping address <textarea name="address" rows="3" required></textarea></label>
-    <button type="submit">Place order — <%= fmt(subtotal) %></button>
+    <button type="submit"><% if (stripeMode === 'demo') { %>Place order<% } else { %>Continue to secure payment<% } %> — <%= fmt(subtotal) %></button>
   </form>
   <aside class="order-summary">
     <h2>Order summary</h2>

@@ -1,9 +1,14 @@
 <%- include('partials/header', { title: 'Order confirmed', cartCount, seller }) %>
 
 <div class="confirmation">
+  <% if (order.status === 'paid') { %>
   <h1>🎉 Order confirmed!</h1>
   <p>Thank you, <%= order.buyer_name %>. Your order <strong>#<%= order.id %></strong> is on its way.</p>
   <p class="muted">A confirmation was sent to <%= order.buyer_email %>. (Demo mode — no email actually sent.)</p>
+  <% } else { %>
+  <h1>⏳ Payment pending</h1>
+  <p>Your order <strong>#<%= order.id %></strong> is waiting for payment. If you just paid, give it a moment and refresh this page.</p>
+  <% } %>
 
   <h2>Order summary</h2>
   <table class="cart-table">
@@ -14,7 +19,7 @@
       <% }) %>
     </tbody>
   </table>
-  <p>Total paid: <strong><%= fmt(order.total_cents) %></strong> <span class="free-ship">FREE shipping</span></p>
+  <p><% if (order.status === 'paid') { %>Total paid:<% } else { %>Order total:<% } %> <strong><%= fmt(order.total_cents) %></strong> <span class="free-ship">FREE shipping</span></p>
   <p class="muted small">Ship to: <%= order.address %></p>
   <p><a class="btn" href="/products">Keep shopping</a></p>
 </div>

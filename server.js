@@ -48,6 +48,28 @@ app.use(
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true }));
+
+// Stripe webhook: registered before express.json() and CSRF protection because
+// signature verification needs the raw request body. No session/CSRF needed —
+// the Stripe signature is the authentication.
+app.post('/webhooks/stripe', express.raw({ type: 'application/json' }), (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  let event;
+  try {
+    event = payments.verifyWebhookSignature(req.body, sig);
+  } catch (err) {
+    console.error('stripe webhook: bad signature:', err.message);
+    return res.status(400).send('bad signature');
+  }
+  if (!event) return res.status(200).send('webhook not configured');
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const orderId = session.metadata && Number(session.metadata.order_id);
+    if (orderId && session.payment_status === 'paid') markOrderPaid(orderId);
+  }
+  res.status(200).send('ok');
+});
+
 app.use(express.json({ limit: '16kb' })); // support-assistant API posts JSON
 app.use(cookieParser());
 app.use(
@@ -178,6 +200,7 @@ app.use((req, res, next) => {
   // exists before generating it (otherwise the ID rotates per request).
   if (!req.session.csrfInit) req.session.csrfInit = 1;
   res.locals.csrfToken = generateCsrfToken(req, res);
+  res.locals.stripeMode = payments.mode(); // 'live' | 'test' | 'demo'
   next();
 });
 
@@ -203,6 +226,22 @@ function cartDetails(cart) {
   }));
   const subtotal = items.reduce((s, i) => s + i.unit * i.qty, 0);
   return { items, subtotal };
+}
+
+// Flips a pending order to paid and decrements stock. Idempotent: only acts
+// when the order is still pending, so the success redirect and the Stripe
+// webhook can both call it safely.
+function markOrderPaid(orderId) {
+  return db.transaction(() => {
+    const o = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    if (!o || o.status !== 'pending') return false;
+    db.prepare("UPDATE orders SET status = 'paid' WHERE id = ?").run(orderId);
+    const dec = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?');
+    for (const it of db.prepare('SELECT product_id, qty FROM order_items WHERE order_id = ?').all(orderId)) {
+      dec.run(it.qty, it.product_id);
+    }
+    return true;
+  })();
 }
 
 function requireSeller(req, res, next) {
@@ -345,26 +384,80 @@ app.post('/checkout', async (req, res) => {
   const insertItem = db.prepare(
     'INSERT INTO order_items (order_id, product_id, qty, unit_price_cents) VALUES (?, ?, ?, ?)'
   );
-  const decStock = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?');
 
+  // Orders start as pending; stock is decremented only when payment confirms.
   const orderId = db.transaction(() => {
-    const o = insertOrder.run(buyer_name.trim(), buyer_email.trim(), address.trim(), subtotal, fee, subtotal, 'paid');
+    const o = insertOrder.run(buyer_name.trim(), buyer_email.trim(), address.trim(), subtotal, fee, subtotal, 'pending');
     for (const i of items) {
       insertItem.run(o.lastInsertRowid, i.id, i.qty, i.unit);
-      decStock.run(i.qty, i.id);
     }
     return Number(o.lastInsertRowid);
   })();
 
-  try {
-    await payments.charge({ amountCents: subtotal, currency: 'cad', orderId, buyerEmail: buyer_email.trim() });
-  } catch (err) {
-    console.error('payment failed:', err.message);
-    return res.status(502).render('checkout', { items, subtotal, error: 'Demo payment failed — please try again.' });
+  // Demo mode (no Stripe key): pretend the charge succeeded, as before.
+  if (!payments.isLive()) {
+    try {
+      await payments.demoCharge({ amountCents: subtotal, orderId, buyerEmail: buyer_email.trim() });
+    } catch (err) {
+      console.error('demo payment failed:', err.message);
+      return res.status(502).render('checkout', { items, subtotal, error: 'Demo payment failed — please try again.' });
+    }
+    markOrderPaid(orderId);
+    req.session.cart = {};
+    return res.redirect(`/orders/${orderId}`);
   }
 
+  // Live/test mode: hand off to Stripe's hosted checkout page.
+  const baseUrl = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`;
+  let session;
+  try {
+    session = await payments.createCheckoutSession({
+      items,
+      orderId,
+      buyerEmail: buyer_email.trim(),
+      successUrl: `${baseUrl}/checkout/success`,
+      cancelUrl: `${baseUrl}/checkout/cancel`,
+    });
+  } catch (err) {
+    console.error('stripe session create failed:', err.message);
+    return res.status(502).render('checkout', { items, subtotal, error: 'Payment service unavailable — please try again.' });
+  }
+  if (!session) {
+    return res.status(502).render('checkout', { items, subtotal, error: 'Payment service unavailable — please try again.' });
+  }
+  db.prepare('UPDATE orders SET stripe_session_id = ? WHERE id = ?').run(session.id, orderId);
+  return res.redirect(303, session.url);
+});
+
+// Buyer returns here from Stripe's hosted page. We verify payment_status via
+// the API before marking anything paid — never trust the redirect alone.
+app.get('/checkout/success', async (req, res) => {
+  const { session_id } = req.query;
+  let orderId = null;
+  if (session_id) {
+    try {
+      const s = await payments.retrieveSession(session_id);
+      if (s && s.payment_status === 'paid' && s.metadata && s.metadata.order_id) {
+        orderId = Number(s.metadata.order_id);
+        markOrderPaid(orderId);
+      }
+    } catch (err) {
+      console.error('stripe success verify failed:', err.message);
+    }
+    // Fallback: the webhook may have already marked it paid.
+    if (!orderId) {
+      const o = db.prepare('SELECT id FROM orders WHERE stripe_session_id = ?').get(session_id);
+      if (o) orderId = o.id;
+    }
+  }
   req.session.cart = {};
-  res.redirect(`/orders/${orderId}`);
+  if (orderId) return res.redirect(`/orders/${orderId}`);
+  return res.redirect('/cart');
+});
+
+// Buyer cancelled on Stripe's page — order stays pending, cart is kept.
+app.get('/checkout/cancel', (req, res) => {
+  res.redirect('/cart');
 });
 
 app.get('/orders/:id', (req, res) => {
@@ -632,8 +725,8 @@ app.get('/admin', (req, res) => {
     sellers: db.prepare('SELECT COUNT(*) AS c FROM sellers').get().c,
     products: db.prepare('SELECT COUNT(*) AS c FROM products').get().c,
     orders: db.prepare('SELECT COUNT(*) AS c FROM orders').get().c,
-    gross: db.prepare('SELECT COALESCE(SUM(total_cents),0) AS s FROM orders').get().s,
-    fees: db.prepare('SELECT COALESCE(SUM(platform_fee_cents),0) AS s FROM orders').get().s,
+    gross: db.prepare("SELECT COALESCE(SUM(total_cents),0) AS s FROM orders WHERE status = 'paid'").get().s,
+    fees: db.prepare("SELECT COALESCE(SUM(platform_fee_cents),0) AS s FROM orders WHERE status = 'paid'").get().s,
   };
   const recent = db.prepare('SELECT * FROM orders ORDER BY id DESC LIMIT 10').all();
 
@@ -648,7 +741,7 @@ app.get('/admin', (req, res) => {
     .prepare(
       `SELECT strftime('%Y-%m', created_at) AS month, COUNT(*) AS orders,
               COALESCE(SUM(total_cents),0) AS gross, COALESCE(SUM(platform_fee_cents),0) AS fees
-       FROM orders GROUP BY month ORDER BY month DESC`
+       FROM orders WHERE status = 'paid' GROUP BY month ORDER BY month DESC`
     )
     .all();
 

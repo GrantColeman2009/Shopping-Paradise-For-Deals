@@ -52,11 +52,13 @@ function seedProducts() {
   );
 
   const insertProduct = db.prepare(
-    'INSERT INTO products (seller_id, name, description, category, price_cents, shipping_cost_cents, image_url, stock, origin_country_code, shipping_carrier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO products (seller_id, name, description, category, price_cents, shipping_cost_cents, intl_shipping_cents, image_url, stock, origin_country_code, shipping_carrier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
   const tx = db.transaction(() => {
     for (const p of products) {
-      insertProduct.run(sellerIds[p.s], p.name, p.description, p.category, p.price, p.ship, p.img, p.stock, p.origin || 'CA', p.carrier || 'canada_post');
+      // Seed sellers are Canadian, so their national postal service is Canada Post.
+      // International standard shipping placeholder: ~3x the domestic cost.
+      insertProduct.run(sellerIds[p.s], p.name, p.description, p.category, p.price, p.ship, p.ship * 3, p.img, p.stock, p.origin || 'CA', 'canada_post');
     }
   });
   tx();

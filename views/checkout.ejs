@@ -15,18 +15,88 @@
     <% if (typeof error !== 'undefined' && error) { %><p class="error"><%= error %></p><% } %>
     <label>Full name <input type="text" name="buyer_name" required></label>
     <label>Email <input type="email" name="buyer_email" required></label>
+    <label>Country
+      <select name="dest_country" id="dest_country" required>
+        <% countries.forEach(function(c) { %>
+          <option value="<%= c[0] %>" <%= destCountry === c[0] ? 'selected' : '' %>><%= c[1] %></option>
+        <% }) %>
+      </select>
+      <span class="muted small">We ship only to countries served by a national postal service.</span>
+    </label>
     <label>Shipping address <textarea name="address" rows="3" required></textarea></label>
-    <button type="submit"><% if (stripeMode === 'demo') { %>Place order<% } else { %>Continue to secure payment<% } %> — <%= fmt(subtotal) %></button>
+    <fieldset id="ship-options" style="display:none">
+      <legend>International shipping</legend>
+      <label><input type="radio" name="ship_option" value="standard" <%= shipOption !== 'express' ? 'checked' : '' %>> Standard — <span id="std-price"></span></label>
+      <label><input type="radio" name="ship_option" value="express" <%= shipOption === 'express' ? 'checked' : '' %>> Express — <span id="exp-price"></span></label>
+      <p class="muted small" id="ship-carriers"></p>
+    </fieldset>
+    <button type="submit"><% if (stripeMode === 'demo') { %>Place order<% } else { %>Continue to secure payment<% } %> — <span id="total-btn"><%= fmt(subtotal) %></span></button>
   </form>
   <aside class="order-summary">
     <h2>Order summary</h2>
     <ul>
       <% items.forEach(function(i) { %>
-        <li><%= i.qty %> × <%= i.name %> — <%= fmt(i.unit * i.qty) %></li>
+        <li data-price="<%= i.price_cents %>" data-ship="<%= i.shipping_cost_cents %>" data-intl="<%= i.intl_shipping_cents || 0 %>" data-qty="<%= i.qty %>" data-carrier="<%= carrierName(i.shipping_carrier) %>"><span><%= i.qty %> × <%= i.name %></span> — <span class="line-total"><%= fmt(i.unit * i.qty) %></span></li>
       <% }) %>
     </ul>
-    <p>Total: <strong><%= fmt(subtotal) %></strong> <span class="free-ship">FREE shipping</span></p>
+    <p>Shipping: <strong id="ship-total">FREE</strong></p>
+    <p>Total: <strong id="grand-total"><%= fmt(subtotal) %></strong> <span class="free-ship" id="free-ship-badge">FREE shipping</span></p>
+    <p class="muted small">FREE shipping in Canada &amp; the USA (shipping cost included in the listed price). International orders ship via each seller's national postal service, insured up to the carrier's maximum coverage.</p>
   </aside>
 </div>
+
+<script>
+(function() {
+  var EXPRESS = <%= expressMult %>;
+  var countrySel = document.getElementById('dest_country');
+  var shipBox = document.getElementById('ship-options');
+  var rows = Array.prototype.slice.call(document.querySelectorAll('.order-summary li[data-price]'));
+  function money(c) { return '$' + (c / 100).toFixed(2); }
+  function option() {
+    var r = document.querySelector('input[name="ship_option"]:checked');
+    return (r && r.value === 'express') ? 'express' : 'standard';
+  }
+  function recalc() {
+    var code = countrySel.value;
+    var intl = code !== 'CA' && code !== 'US';
+    var mult = option() === 'express' ? EXPRESS : 1;
+    var goods = 0, ship = 0, stdShip = 0;
+    var carriers = {};
+    rows.forEach(function(li) {
+      var price = +li.getAttribute('data-price'),
+          dship = +li.getAttribute('data-ship'),
+          intlShip = +li.getAttribute('data-intl'),
+          qty = +li.getAttribute('data-qty');
+      var lineGoods, lineShip = 0;
+      if (intl) {
+        lineGoods = price * qty;
+        lineShip = Math.round(intlShip * qty * mult);
+        carriers[li.getAttribute('data-carrier')] = true;
+      } else {
+        lineGoods = (price + dship) * qty;
+      }
+      goods += lineGoods; ship += lineShip;
+      stdShip += Math.round(intlShip * qty);
+      li.querySelector('.line-total').textContent = money(lineGoods);
+    });
+    shipBox.style.display = intl ? '' : 'none';
+    document.getElementById('ship-total').textContent = intl ? money(ship) : 'FREE';
+    document.getElementById('free-ship-badge').style.display = intl ? 'none' : '';
+    document.getElementById('grand-total').textContent = money(goods + ship);
+    document.getElementById('total-btn').textContent = money(goods + ship);
+    if (intl) {
+      document.getElementById('std-price').textContent = money(stdShip);
+      document.getElementById('exp-price').textContent = money(Math.round(stdShip * EXPRESS));
+      document.getElementById('ship-carriers').textContent =
+        'Via ' + Object.keys(carriers).join(', ') + '. Insured up to the carrier\u2019s maximum coverage.';
+    }
+  }
+  countrySel.addEventListener('change', recalc);
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="ship_option"]'), function(r) {
+    r.addEventListener('change', recalc);
+  });
+  recalc();
+})();
+</script>
 
 <%- include('partials/footer') %>

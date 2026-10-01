@@ -9,20 +9,18 @@ const { doubleCsrf } = require('csrf-csrf');
 const db = require('./db');
 const payments = require('./lib/payments');
 const { answer: assistantAnswer } = require('./lib/assistant');
-const { COUNTRIES, countryName, flagOf, isValidCountry } = require('./lib/countries');
+const { COUNTRIES, countryName, flagOf, isValidCountry,
+  carrierByKey, carrierKeyForCountry, isServiceableCountry, serviceableCountries,
+  postalServiceFor, EXPRESS_MULTIPLIER } = require('./lib/countries');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const FEE_RATE = 0.04; // 4% marketplace fee per sale
 const IS_PROD = process.env.NODE_ENV === 'production';
 
-// Shipping carriers sellers can ship with (buyer-facing labels).
-const SHIPPING_CARRIERS = {
-  canada_post: 'Canada Post',
-  ups: 'UPS',
-  purolator: 'Purolator',
-};
-const carrierName = (code) => SHIPPING_CARRIERS[code] || SHIPPING_CARRIERS.canada_post;
+// Sellers ship through the national postal service of their home country.
+// Only countries with a supported national postal service are served.
+const carrierName = (code) => { const c = carrierByKey(code); return c ? c.name : 'Canada Post'; };
 
 // Behind Render / any reverse proxy, so rate limiting sees the real client IP
 // and secure cookies work.
@@ -129,7 +127,45 @@ const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
 // ---- shared helpers ----
 const fmt = (cents) => '$' + (cents / 100).toFixed(2);
 app.locals.fmt = fmt;
+app.locals.carrierName = carrierName;
+app.locals.carrierKeyForCountry = carrierKeyForCountry;
 const buyerPrice = (p) => p.price_cents + p.shipping_cost_cents;
+
+// ---- international shipping quotes ----
+// Canada & USA: shipping is baked into the listed price (FREE shipping for
+// the buyer). Every other served country: the buyer chooses Standard or
+// Express at checkout and that shipping cost is added to the order total.
+// Each seller's goods travel via their home country's national postal
+// service. The insured value of a line never exceeds the carrier's maximum
+// coverage; insurance claims are handled by the platform (Adam).
+function quoteCheckout(items, destCountry, shipOption) {
+  const code = String(destCountry || 'CA').toUpperCase();
+  const intl = code !== 'CA' && code !== 'US';
+  const express = shipOption === 'express';
+  const mult = express ? EXPRESS_MULTIPLIER : 1;
+  let goodsCents = 0, shippingCents = 0, insuredCents = 0;
+  const lines = items.map((i) => {
+    const qty = i.qty;
+    const svc = carrierByKey(i.shipping_carrier) || carrierByKey('canada_post');
+    const cap = Math.round(svc.maxInsuredCad * 100);
+    if (!intl) {
+      const lineTotal = (i.price_cents + i.shipping_cost_cents) * qty;
+      goodsCents += lineTotal;
+      insuredCents += Math.min(lineTotal, cap);
+      return { ...i, lineGoods: lineTotal, lineShipping: 0, carrierLabel: svc.name };
+    }
+    const lineGoods = i.price_cents * qty;
+    const lineShipping = Math.round((i.intl_shipping_cents || 0) * qty * mult);
+    goodsCents += lineGoods;
+    shippingCents += lineShipping;
+    insuredCents += Math.min(lineGoods, cap);
+    return { ...i, lineGoods, lineShipping, carrierLabel: svc.name };
+  });
+  return {
+    code, intl, express, lines, goodsCents, shippingCents,
+    totalCents: goodsCents + shippingCents, insuredCents,
+  };
+}
 
 const getSetting = (key) => {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
@@ -194,7 +230,7 @@ app.use((req, res, next) => {
   res.locals.countries = COUNTRIES;
   res.locals.countryName = countryName;
   res.locals.flagOf = flagOf;
-  res.locals.shippingCarriers = SHIPPING_CARRIERS;
+  res.locals.serviceableCountries = serviceableCountries();
   res.locals.carrierName = carrierName;
   // The CSRF token is bound to the session ID, so make sure a session
   // exists before generating it (otherwise the ID rotates per request).
@@ -263,7 +299,7 @@ app.get('/', (req, res) => {
     .all();
   res.render('index', {
     featured, categories,
-    description: 'Shopping Paradise For Deals — every price includes FREE shipping. A 100% Canadian owned marketplace with deals from sellers around the world.',
+    description: 'Shopping Paradise For Deals — FREE shipping in Canada & USA, international shipping options at checkout. A 100% Canadian owned marketplace with deals from sellers around the world.',
     ogImage: featured.length ? featured[0].image_url : undefined,
   });
 });
@@ -280,7 +316,7 @@ app.get('/products', (req, res) => {
   const products = db.prepare(sql).all(...params);
   res.render('products', {
     products, categories, search, category,
-    description: 'Shop all products on Shopping Paradise For Deals — one price with FREE shipping included, from a 100% Canadian owned marketplace.',
+    description: 'Shop all products on Shopping Paradise For Deals — FREE shipping in Canada & USA, from a 100% Canadian owned marketplace.',
   });
 });
 
@@ -297,7 +333,7 @@ app.get('/products/:id', (req, res) => {
     : null;
   res.render('product', {
     product, reviews, avgRating: avg, reviewError: null,
-    description: `${product.name} — ${fmt(product.price_cents + product.shipping_cost_cents)} with FREE shipping on Shopping Paradise For Deals, a 100% Canadian owned marketplace.`,
+    description: `${product.name} — ${fmt(product.price_cents + product.shipping_cost_cents)} with FREE shipping in Canada & USA on Shopping Paradise For Deals, a 100% Canadian owned marketplace.`,
     ogImage: product.image_url,
   });
 });
@@ -366,20 +402,33 @@ app.post('/cart/remove', (req, res) => {
 app.get('/checkout', (req, res) => {
   const { items, subtotal } = cartDetails(getCart(req));
   if (items.length === 0) return res.redirect('/cart');
-  res.render('checkout', { items, subtotal });
+  res.render('checkout', {
+    items, subtotal, destCountry: 'CA', shipOption: 'standard',
+    countries: serviceableCountries(), expressMult: EXPRESS_MULTIPLIER,
+  });
 });
 
 app.post('/checkout', async (req, res) => {
-  const { buyer_name, buyer_email, address } = req.body;
+  const { buyer_name, buyer_email, address, dest_country, ship_option } = req.body;
   const { items, subtotal } = cartDetails(getCart(req));
   if (items.length === 0) return res.redirect('/cart');
+  const destCountry = String(dest_country || 'CA').toUpperCase();
+  const shipOption = ship_option === 'express' ? 'express' : 'standard';
+  const renderCheckout = (error) => res.status(400).render('checkout', {
+    items, subtotal, destCountry, shipOption,
+    countries: serviceableCountries(), expressMult: EXPRESS_MULTIPLIER, error,
+  });
   if (!buyer_name || !buyer_email || !address) {
-    return res.status(400).render('checkout', { items, subtotal, error: 'Please fill in every field.' });
+    return renderCheckout('Please fill in every field.');
   }
+  if (!isServiceableCountry(destCountry)) {
+    return renderCheckout('Sorry — we do not ship to that country yet.');
+  }
+  const q = quoteCheckout(items, destCountry, shipOption);
 
-  const fee = Math.round(subtotal * FEE_RATE);
+  const fee = Math.round(q.totalCents * FEE_RATE);
   const insertOrder = db.prepare(
-    'INSERT INTO orders (buyer_name, buyer_email, address, subtotal_cents, platform_fee_cents, total_cents, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO orders (buyer_name, buyer_email, address, subtotal_cents, platform_fee_cents, total_cents, status, dest_country_code, ship_option, shipping_cents, insured_cents) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   );
   const insertItem = db.prepare(
     'INSERT INTO order_items (order_id, product_id, qty, unit_price_cents) VALUES (?, ?, ?, ?)'
@@ -387,9 +436,13 @@ app.post('/checkout', async (req, res) => {
 
   // Orders start as pending; stock is decremented only when payment confirms.
   const orderId = db.transaction(() => {
-    const o = insertOrder.run(buyer_name.trim(), buyer_email.trim(), address.trim(), subtotal, fee, subtotal, 'pending');
+    const o = insertOrder.run(buyer_name.trim(), buyer_email.trim(), address.trim(),
+      q.totalCents, fee, q.totalCents, 'pending', q.code, q.intl ? shipOption : null,
+      q.shippingCents, q.insuredCents);
     for (const i of items) {
-      insertItem.run(o.lastInsertRowid, i.id, i.qty, i.unit);
+      // Domestic: unit price already includes shipping (as before). International:
+      // goods only — shipping is stored on the order itself.
+      insertItem.run(o.lastInsertRowid, i.id, i.qty, q.intl ? i.price_cents : i.unit);
     }
     return Number(o.lastInsertRowid);
   })();
@@ -397,10 +450,10 @@ app.post('/checkout', async (req, res) => {
   // Demo mode (no Stripe key): pretend the charge succeeded, as before.
   if (!payments.isLive()) {
     try {
-      await payments.demoCharge({ amountCents: subtotal, orderId, buyerEmail: buyer_email.trim() });
+      await payments.demoCharge({ amountCents: q.totalCents, orderId, buyerEmail: buyer_email.trim() });
     } catch (err) {
       console.error('demo payment failed:', err.message);
-      return res.status(502).render('checkout', { items, subtotal, error: 'Demo payment failed — please try again.' });
+      return renderCheckout('Demo payment failed — please try again.');
     }
     markOrderPaid(orderId);
     req.session.cart = {};
@@ -409,10 +462,22 @@ app.post('/checkout', async (req, res) => {
 
   // Live/test mode: hand off to Stripe's hosted checkout page.
   const baseUrl = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get('host')}`;
+  const stripeItems = q.intl
+    ? items.map((i) => ({ name: i.name, unit: i.price_cents, qty: i.qty }))
+    : items;
+  let shippingLine = null;
+  if (q.intl && q.shippingCents > 0) {
+    const carriers = [...new Set(q.lines.map((l) => l.carrierLabel))].join(', ');
+    shippingLine = {
+      description: `International shipping — ${shipOption === 'express' ? 'Express' : 'Standard'} via ${carriers}`,
+      amountCents: q.shippingCents,
+    };
+  }
   let session;
   try {
     session = await payments.createCheckoutSession({
-      items,
+      items: stripeItems,
+      shipping: shippingLine,
       orderId,
       buyerEmail: buyer_email.trim(),
       successUrl: `${baseUrl}/checkout/success`,
@@ -420,10 +485,10 @@ app.post('/checkout', async (req, res) => {
     });
   } catch (err) {
     console.error('stripe session create failed:', err.message);
-    return res.status(502).render('checkout', { items, subtotal, error: 'Payment service unavailable — please try again.' });
+    return renderCheckout('Payment service unavailable — please try again.');
   }
   if (!session) {
-    return res.status(502).render('checkout', { items, subtotal, error: 'Payment service unavailable — please try again.' });
+    return renderCheckout('Payment service unavailable — please try again.');
   }
   db.prepare('UPDATE orders SET stripe_session_id = ? WHERE id = ?').run(session.id, orderId);
   return res.redirect(303, session.url);
@@ -568,19 +633,19 @@ app.get('/seller/products/new', requireSeller, (req, res) => {
 app.post('/seller/products', requireSeller, (req, res) => {
   const price_cents = Math.round(parseFloat(req.body.price || '0') * 100);
   const shipping_cost_cents = Math.round(parseFloat(req.body.shipping_cost || '0') * 100);
+  const intl_shipping_cents = Math.round(parseFloat(req.body.intl_shipping || '0') * 100);
   const stock = Math.max(0, parseInt(req.body.stock, 10) || 0);
   const me = db.prepare('SELECT country_code FROM sellers WHERE id = ?').get(req.session.sellerId);
   const origin_country_code = isValidCountry(req.body.origin_country_code)
     ? String(req.body.origin_country_code).toUpperCase()
     : (me.country_code || 'CA');
-  const shipping_carrier = SHIPPING_CARRIERS[req.body.shipping_carrier]
-    ? req.body.shipping_carrier
-    : 'canada_post';
-  if (!req.body.name || price_cents < 0 || shipping_cost_cents < 0) {
-    return res.status(400).render('seller/product-form', { product: req.body, error: 'Name, price and shipping cost are required.' });
+  // Sellers always ship via their home country's national postal service.
+  const shipping_carrier = carrierKeyForCountry(me.country_code || 'CA');
+  if (!req.body.name || price_cents < 0 || shipping_cost_cents < 0 || intl_shipping_cents < 0) {
+    return res.status(400).render('seller/product-form', { product: req.body, error: 'Name, price and shipping costs are required.' });
   }
   db.prepare(
-    'INSERT INTO products (seller_id, name, description, category, price_cents, shipping_cost_cents, image_url, stock, origin_country_code, shipping_carrier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO products (seller_id, name, description, category, price_cents, shipping_cost_cents, intl_shipping_cents, image_url, stock, origin_country_code, shipping_carrier) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(
     req.session.sellerId,
     req.body.name.trim(),
@@ -588,6 +653,7 @@ app.post('/seller/products', requireSeller, (req, res) => {
     req.body.category || 'other',
     price_cents,
     shipping_cost_cents,
+    intl_shipping_cents,
     (req.body.image_url || '').trim(),
     stock,
     origin_country_code,
@@ -607,21 +673,22 @@ app.post('/seller/products/:id/edit', requireSeller, (req, res) => {
   if (!product) return res.status(404).render('404');
   const price_cents = Math.round(parseFloat(req.body.price || '0') * 100);
   const shipping_cost_cents = Math.round(parseFloat(req.body.shipping_cost || '0') * 100);
+  const intl_shipping_cents = Math.round(parseFloat(req.body.intl_shipping || '0') * 100);
   const stock = Math.max(0, parseInt(req.body.stock, 10) || 0);
   const origin_country_code = isValidCountry(req.body.origin_country_code)
     ? String(req.body.origin_country_code).toUpperCase()
     : (product.origin_country_code || 'CA');
-  const shipping_carrier = SHIPPING_CARRIERS[req.body.shipping_carrier]
-    ? req.body.shipping_carrier
-    : (product.shipping_carrier || 'canada_post');
+  const me = db.prepare('SELECT country_code FROM sellers WHERE id = ?').get(req.session.sellerId);
+  const shipping_carrier = carrierKeyForCountry((me && me.country_code) || 'CA');
   db.prepare(
-    'UPDATE products SET name = ?, description = ?, category = ?, price_cents = ?, shipping_cost_cents = ?, image_url = ?, stock = ?, origin_country_code = ?, shipping_carrier = ? WHERE id = ?'
+    'UPDATE products SET name = ?, description = ?, category = ?, price_cents = ?, shipping_cost_cents = ?, intl_shipping_cents = ?, image_url = ?, stock = ?, origin_country_code = ?, shipping_carrier = ? WHERE id = ?'
   ).run(
     req.body.name.trim(),
     (req.body.description || '').trim(),
     req.body.category || 'other',
     price_cents,
     shipping_cost_cents,
+    intl_shipping_cents,
     (req.body.image_url || '').trim(),
     stock,
     origin_country_code,

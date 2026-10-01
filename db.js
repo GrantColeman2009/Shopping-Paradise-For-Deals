@@ -97,10 +97,31 @@ for (const [table, column, def] of [
   ['sellers', 'country_code', "TEXT NOT NULL DEFAULT 'CA'"],
   ['products', 'origin_country_code', "TEXT NOT NULL DEFAULT 'CA'"],
   ['products', 'shipping_carrier', "TEXT NOT NULL DEFAULT 'canada_post'"],
+  ['products', 'intl_shipping_cents', 'INTEGER NOT NULL DEFAULT 0'],
   ['orders', 'stripe_session_id', 'TEXT'],
+  ['orders', 'dest_country_code', "TEXT NOT NULL DEFAULT 'CA'"],
+  ['orders', 'ship_option', 'TEXT'],
+  ['orders', 'shipping_cents', 'INTEGER NOT NULL DEFAULT 0'],
+  ['orders', 'insured_cents', 'INTEGER NOT NULL DEFAULT 0'],
 ]) {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
   if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
+}
+
+// One-time data migration (idempotent): the retired courier codes
+// ('ups', 'purolator') are replaced with the seller's own national postal
+// service. Sellers now always ship via their home country's national post.
+try {
+  const { carrierKeyForCountry } = require('./lib/countries');
+  const legacy = db.prepare(
+    `SELECT p.id, s.country_code FROM products p JOIN sellers s ON s.id = p.seller_id
+     WHERE p.shipping_carrier IN ('ups', 'purolator')`
+  ).all();
+  const fix = db.prepare('UPDATE products SET shipping_carrier = ? WHERE id = ?');
+  for (const row of legacy) fix.run(carrierKeyForCountry(row.country_code), row.id);
+  if (legacy.length) console.log(`[db] migrated ${legacy.length} product(s) to national postal carriers`);
+} catch (err) {
+  console.error('[db] carrier migration skipped:', err.message);
 }
 
 // better-sqlite3-style transaction helper: db.transaction(fn)()

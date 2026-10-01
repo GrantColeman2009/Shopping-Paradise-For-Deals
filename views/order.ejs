@@ -19,8 +19,15 @@
       <% }) %>
     </tbody>
   </table>
-  <p><% if (order.status === 'paid') { %>Total paid:<% } else { %>Order total:<% } %> <strong><%= fmt(order.total_cents) %></strong> <span class="free-ship">FREE shipping</span></p>
-  <p class="muted small">Ship to: <%= order.address %></p>
+  <% const isIntl = order.dest_country_code && order.dest_country_code !== 'CA' && order.dest_country_code !== 'US'; %>
+  <% if (isIntl) { %>
+  <p>Shipping (<%= order.ship_option === 'express' ? 'Express' : 'Standard' %> international): <strong><%= fmt(order.shipping_cents) %></strong></p>
+  <% } %>
+  <p><% if (order.status === 'paid') { %>Total paid:<% } else { %>Order total:<% } %> <strong><%= fmt(order.total_cents) %></strong> <% if (!isIntl) { %><span class="free-ship">FREE shipping</span><% } %></p>
+  <% if (order.insured_cents > 0) { %>
+  <p class="muted small">Insured up to <%= fmt(order.insured_cents) %> (carrier maximum coverage). Shipping insurance claims are handled by our support team — contact Adam via the <a href="/help">Help centre</a>.</p>
+  <% } %>
+  <p class="muted small">Ship to: <%= order.address %><% if (order.dest_country_code) { %>, <%= order.dest_country_code %><% } %></p>
   <p><a class="btn" href="/products">Keep shopping</a></p>
 </div>
 
